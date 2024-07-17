@@ -45,7 +45,6 @@ def put_data(
                             "rowkey": row[rowkey_col],
                             "datas": {
                                 cf: { cq: str(row[cq]) for cq in cq_list},
-                                # cf: { cq: row[cq] for cq in cq_list},
                             }
                         } for row in chunk.iter_rows(named=True)
                     ],

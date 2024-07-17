@@ -9,8 +9,8 @@ URL = 'http://10.100.2.218:2891/api/hbase/v1/test/filterdata2'
 def get_data(
         table_name:str, 
         cf:str,
-        cq_list:list, 
-        rowkeys:list, 
+        cq_list:list[str], 
+        rowkeys:list[str], 
         url:str = URL
     )-> pl.DataFrame:
     """
@@ -95,6 +95,10 @@ def get_data(
             index = "row",
             values = "value",
             on = "qualifier"
+        )
+        .select(
+            pl.col("row").alias("hex_id"),
+            pl.exclude("row")
         )
     )
 

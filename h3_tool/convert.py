@@ -5,6 +5,18 @@ from h3ronpy import ContainmentMode as Cont
 import geopandas as gpd
 from h3_tool.hbase_put import put_data
 from h3_tool.hbase_get import get_data
+from enum import Enum
+from typing import Literal, Callable, Optional
+
+class AggFunc(Enum):
+    """
+    5 ways to aggregate the data
+    """
+    SUM = 'sum'
+    AVG = 'avg'
+    COUNT = 'count'
+    MAJOR = 'major'
+    PERCENTAGE = 'percentage'
 
 
 def _geom_to_wkb(df:gpd.GeoDataFrame)->pl.DataFrame:
@@ -36,7 +48,7 @@ def _wkb_to_cells(df:pl.DataFrame, source_r:int, selected_cols:list, geom_col:st
     return (
         df
         .select(
-            pl.col('geometry_wkb')
+            pl.col(geom_col)
             .custom.custom_wkb_to_cells(
                 resolution=source_r,
                 containment_mode=Cont.ContainsCentroid,
@@ -48,7 +60,7 @@ def _wkb_to_cells(df:pl.DataFrame, source_r:int, selected_cols:list, geom_col:st
         .explode('cell')
     )
 
-def _cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
+def cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
     """
     convert h3 cells to geometry
     """
@@ -62,25 +74,50 @@ def _cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
                 .custom.custom_from_wkb()
                 .alias('geometry')
             ).to_pandas()
-            , geometry='geometry', crs='epsg:4326')
+            , geometry='geometry'
+            , crs='epsg:4326'
+        )
     )
 
-def _sum(df, target_cols, agg_cols):
+def _sum(df:pl.DataFrame, target_cols:list[str], agg_col:str)->pl.DataFrame:
     """
     target_cols: list, the columns to be aggregated
     agg_cols: list, the columns to be aggregated by, usually is a boundary
     """
+
+    if agg_col is None:
+        raise ValueError("agg_cols must be provided when using sum aggregation")
+    
     return (
         df
         .with_columns(
             # first / count over agg_cols(usually is a boundary)
-            ((pl.first(target_cols).over(agg_cols)) /
-            (pl.count(target_cols).over(agg_cols)))
+            ((pl.first(target_cols).over(agg_col)) /
+            (pl.count(target_cols).over(agg_col)))
             .name.suffix("_sum")
         )
     )
 
-def _avg(df, target_cols):
+def _sum_agg(df:pl.DataFrame, target_cols:list[str], agg_col:str)->pl.DataFrame:
+    """
+    target_cols: list, the columns to be aggregated
+    agg_cols: list, the columns to be aggregated by, usually is a boundary
+    """
+
+    if agg_col is None:
+        raise ValueError("agg_cols must be provided when using sum aggregation")
+    
+    return (
+        df
+        .group_by(
+            agg_col
+        )
+        .agg(
+            pl.col(target_cols).cast(pl.Float64).sum()
+        )
+    )
+
+def _avg(df:pl.DataFrame, target_cols:list[str])->pl.DataFrame:
     # base function
     """
     without doing anything
@@ -92,8 +129,7 @@ def _avg(df, target_cols):
         )
     )
 
-def _count(df, target_cols):
-    # base function
+def _count(df:pl.DataFrame, target_cols:list[str])->pl.DataFrame:
     """
     target_cols: list, the columns to be counted inside the designated resolution
     # no matter the is nun/null or not
@@ -108,7 +144,7 @@ def _count(df, target_cols):
         ) 
     )
 
-def _major(df, target_cols, target_r):
+def _major(df:pl.DataFrame, target_cols:list[str], target_r)->pl.DataFrame:
     # 會影響output cell數量
     # 把change_resolution拉出去
     # scale up function
@@ -135,7 +171,7 @@ def _major(df, target_cols, target_r):
     )
 
 # TODO
-def _percentage(df, target_cols, target_r):
+def _percentage(df:pl.DataFrame, target_cols, target_r)->pl.DataFrame:
     # 把change_resolution拉出去
     # scale up function
     """
@@ -156,9 +192,6 @@ def _percentage(df, target_cols, target_r):
             .alias('count_')
         )
     )
-
-def _get_cell_data_from_hbase(rows):
-    pass
 
 # def _change_resolution(df, source_r, target_r):
 #     """
@@ -190,58 +223,141 @@ def _get_cell_data_from_hbase(rows):
 
 def vector_to_cell(
     data: pl.DataFrame | gpd.GeoDataFrame,
-    agg_func,
-    agg_cols: list,
-    target_cols: list,
-    source_r: int = 12,
+    agg_func: Literal['sum', 'avg', 'count', 'major', 'percentage'],
+    target_cols: list[str],
+    agg_col: Optional[str] = None,
+    geometry_col: str = 'geometry_wkb',
+    resolution: int = 12,
+    # source_r: int = 12,
     # target_r: int = 9,
 )->pl.DataFrame:
-    
-    selected_cols = agg_cols + target_cols
-    # data = data.copy()
+    """
+    Args:
+        data: pl.DataFrame | gpd.GeoDataFrame, the input data
+        agg_func: Literal['sum', 'avg', 'count', 'major', 'percentage'], the aggregation function
+        target_cols: list[str], the columns to be aggregated
+        agg_cols: Optional[list[str]], the columns to be aggregated by, usually is a boundary
+        r: int, the h3 resolution
+    Returns:
+        pl.DataFrame, the aggregated target data in h3 cells 
+    """
+
+    selected_cols:list[str] = [agg_col] + target_cols if agg_col else target_cols
+
     if isinstance(data, gpd.GeoDataFrame):
+        """
+        convert GeoDataFrame to polars.DataFrame
+        """
         data = _geom_to_wkb(data)
 
-    result = (
-        data
-        .fill_null(0)
-        .lazy()
-        .pipe(_wkb_to_cells, source_r, selected_cols)
-    
+    operations: dict[AggFunc, Callable[..., pl.DataFrame]] = {
+        AggFunc.SUM.value: lambda df: _sum(df, target_cols, agg_col),
+        AggFunc.AVG.value: lambda df: _avg(df, target_cols),
+        AggFunc.COUNT.value: lambda df: _count(df, target_cols),
+        AggFunc.MAJOR.value: _major,
+        AggFunc.PERCENTAGE.value: _percentage,
+    }
 
-        # .pipe(_change_resolution, source_r, target_r)
-        .pipe(_sum, target_cols, agg_cols)
+    func = operations.get(agg_func)
 
-        # .select(
-        #     pl.col('cell')
-        #     .custom.custom_cells_to_wkb_polygons(),
-        #     # pl.exclude('cell')
-        # )
-        # .pipe(_avg, target_cols)
-        # .pipe(_count, target_cols)
-        # .pipe(_major, target_cols, target_r)
-        # .pipe(agg_func, target_cols)
-        .select(
-            # Convert the cell(unit64) to string
-            pl.col('cell')
-            .h3.cells_to_string().alias('hex_id'),
-            pl.exclude('cell')
+    if resolution == 12:
+        result = (
+            data
+            .fill_nan(0) 
+            .lazy() 
+            .pipe(_wkb_to_cells, resolution, selected_cols, geometry_col) # convert geometry to h3 cells
+            .pipe(func) # aggregate the data
+            .select(  # Convert the cell(unit64) to string
+                pl.col('cell')
+                .h3.cells_to_string().alias('hex_id'),
+                pl.exclude('cell')
+            )
+            .collect(streaming=True)
         )
-        .collect(streaming=True)
-    )
+    elif resolution < 12:
+        target_cols = [f"{target_cols}_{agg_func}" for target_cols in target_cols]
 
-    # upload data to hbase
-    put_data(
-        result, 
-        table_name='res12_test_data',
-        cf='cf1', 
-        cq_list=['h_cnt_sum', 'p_cnt_sum'], 
-        rowkey_col='hex_id', 
-        timestamp=None
-    )
+        # get the r12 cells (rowkeys)
+        rowkeys_df = (
+            data
+            .fill_nan(0) 
+            .lazy() 
+            .pipe(_wkb_to_cells, resolution, geometry_col) # convert geometry to h3 cells
+            .select(
+                pl.col('cell')
+                .h3.change_resolution(12)
+                .h3.cells_to_string()
+                .alias('hex_id'), # scale down to resolution 12
+            )
+            .collect(streaming=True)
+        )
+
+        # call hbase api to get the data from the r12 cells
+        data = get_data(
+            table_name='res12_pre_data',
+            cf='demographic',
+            cq_list = target_cols,
+            rowkeys = rowkeys_df['hex_id'].to_list(),
+        )
+        
+        result = (
+            data
+            .lazy()
+            .with_columns(
+                pl.col('hex_id')
+                .h3.cells_parse()
+                .h3.change_resolution(resolution)
+                .alias(agg_col)
+            )
+            .pipe(_sum_agg, target_cols, agg_col)
+            .select(  # Convert the cell(unit64) to string
+                pl.col(agg_col)
+                .h3.cells_to_string().alias('hex_id'),
+                pl.exclude(agg_col)
+            )
+            .collect(streaming=True)
+        )
+        print(result)
 
     return result
 
-# def geodf_to_polardf(gdf):
-#     gdf['geometry'] = gdf['geometry'].map(to_wkb)
-#     return pl.DataFrame(gdf)
+
+    # result = (
+    #     data
+    #     .fill_null(0)
+    #     .lazy()
+    #     .pipe(_wkb_to_cells, source_r, selected_cols)
+    
+
+    #     # .pipe(_change_resolution, source_r, target_r)
+    #     .pipe(_sum, target_cols, agg_cols)
+
+    #     # .select(
+    #     #     pl.col('cell')
+    #     #     .custom.custom_cells_to_wkb_polygons(),
+    #     #     # pl.exclude('cell')
+    #     # )
+    #     # .pipe(_avg, target_cols)
+    #     # .pipe(_count, target_cols)
+    #     # .pipe(_major, target_cols, target_r)
+    #     # .pipe(agg_func, target_cols)
+    #     .select(
+    #         # Convert the cell(unit64) to string
+    #         pl.col('cell')
+    #         .h3.cells_to_string().alias('hex_id'),
+    #         pl.exclude('cell')
+    #     )
+    #     .collect(streaming=True)
+    # )
+
+    # # upload data to hbase
+    # put_data(
+    #     result, 
+    #     table_name='res12_test_data',
+    #     cf='cf1', 
+    #     cq_list=['h_cnt_sum', 'p_cnt_sum'], 
+    #     rowkey_col='hex_id', 
+    #     timestamp=None
+    # )
+
+    # return result
