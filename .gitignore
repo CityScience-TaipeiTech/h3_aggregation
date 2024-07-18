@@ -2,3 +2,5 @@
 poetry.lock
 pyproject.toml
 /testing_file
+.DS_Store
+/h3_tool/__pycache__

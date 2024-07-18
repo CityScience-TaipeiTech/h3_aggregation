@@ -3,10 +3,11 @@ import h3ronpy.polars
 import geopandas as gpd
 from enum import Enum
 from typing import Literal, Callable, Optional
+
 from h3_tool.hbase.tools import put_data, get_data
 from h3_tool.aggregator.aggregator import _sum, _avg, _count, _major, _percentage
 from h3_tool.aggregator.aggregator_up import _sum_agg, _avg_agg
-from h3_tool.geom_processor import geom_to_wkb, wkb_to_cells
+from h3_tool.processor.geom_processor import geom_to_wkb, wkb_to_cells
 
 class AggFunc(Enum):
     """
@@ -25,8 +26,6 @@ def vector_to_cell_hbase(
     agg_col: Optional[str] = None,
     geometry_col: str = 'geometry_wkb',
     resolution: int = 12,
-    # source_r: int = 12,
-    # target_r: int = 9,
 )->pl.DataFrame:
     """
     Args:
