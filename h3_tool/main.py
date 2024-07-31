@@ -4,10 +4,11 @@ import geopandas as gpd
 from enum import Enum
 from typing import Literal, Callable, Optional
 
-from h3_tool.hbase.tools import put_data, get_data
+from h3_tool.hbase.tools import HBaseClient
 from h3_tool.aggregator.aggregator import _sum, _avg, _count, _major, _percentage
 from h3_tool.aggregator.aggregator_up import _sum_agg, _avg_agg
 from h3_tool.processor.geom_processor import geom_to_wkb, wkb_to_cells
+import logging
 
 class AggFunc(Enum):
     """
@@ -39,8 +40,10 @@ def vector_to_cell_hbase(
     """
 
     selected_cols:list[str] = [agg_col] + target_cols if agg_col else target_cols
+    client = HBaseClient()
 
     if isinstance(data, gpd.GeoDataFrame):
+        logging.info("Converting GeoDataFrame to polars.DataFrame")
         """
         convert GeoDataFrame to polars.DataFrame
         """
@@ -55,7 +58,7 @@ def vector_to_cell_hbase(
     }
 
     func = aggregation_func.get(agg_func)
-
+    logging.info(f"======Start converting the data to h3 cells with resolution {resolution}======")
     # resolution 12 （基底resolution），aggregate後存入hbase
     if resolution == 12:
         result = (
@@ -71,10 +74,13 @@ def vector_to_cell_hbase(
             )
             .collect(streaming=True)
         )
+        logging.info(f"======Finish converting the data to h3 cells with resolution {resolution}======")
 
     # resolution < 12，從hbase取資料後再存入hbase
     elif resolution < 12:
-        target_cols = [f"{target_cols}_{agg_func}" for target_cols in target_cols]
+        logging.info(f"{resolution}<12, get the data from hbase")
+        target_cols = [f"{target_cols}" for target_cols in target_cols]
+        # target_cols = [f"{target_cols}_{agg_func}" for target_cols in target_cols]
 
         # get the r12 cells (rowkeys)
         rowkeys_df = (
@@ -91,15 +97,16 @@ def vector_to_cell_hbase(
             )
             .collect(streaming=True)
         )
-
         # call hbase api to get the data from the r12 cells
-        data = get_data(
+        data = client.fetch_data(
             table_name='res12_pre_data',
             cf='demographic',
             cq_list = target_cols,
             rowkeys = rowkeys_df['hex_id'].to_list(),
         )
-        
+        logging.info(f"======Successfully get data from hbase======")
+
+        logging.info(f"======Start converting the data to h3 cells with resolution {resolution}======")
         result = (
             data
             .lazy()
@@ -119,47 +126,6 @@ def vector_to_cell_hbase(
         )
 
     return result
-
-
-    # result = (
-    #     data
-    #     .fill_null(0)
-    #     .lazy()
-    #     .pipe(_wkb_to_cells, source_r, selected_cols)
-    
-
-    #     # .pipe(_change_resolution, source_r, target_r)
-    #     .pipe(_sum, target_cols, agg_cols)
-
-    #     # .select(
-    #     #     pl.col('cell')
-    #     #     .custom.custom_cells_to_wkb_polygons(),
-    #     #     # pl.exclude('cell')
-    #     # )
-    #     # .pipe(_avg, target_cols)
-    #     # .pipe(_count, target_cols)
-    #     # .pipe(_major, target_cols, target_r)
-    #     # .pipe(agg_func, target_cols)
-    #     .select(
-    #         # Convert the cell(unit64) to string
-    #         pl.col('cell')
-    #         .h3.cells_to_string().alias('hex_id'),
-    #         pl.exclude('cell')
-    #     )
-    #     .collect(streaming=True)
-    # )
-
-    # # upload data to hbase
-    # put_data(
-    #     result, 
-    #     table_name='res12_test_data',
-    #     cf='cf1', 
-    #     cq_list=['h_cnt_sum', 'p_cnt_sum'], 
-    #     rowkey_col='hex_id', 
-    #     timestamp=None
-    # )
-
-    # return result
 
 def vector_to_cell(
     
