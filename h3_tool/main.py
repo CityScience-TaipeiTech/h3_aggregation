@@ -100,7 +100,7 @@ def vector_to_cell_hbase(
         # call hbase api to get the data from the r12 cells
         data = client.fetch_data(
             table_name='res12_pre_data',
-            cf='demographic',
+            cf='economic',
             cq_list = target_cols,
             rowkeys = rowkeys_df['hex_id'].to_list(),
         )
@@ -131,32 +131,3 @@ def vector_to_cell(
     
 ):
     pass
-
-
-# def _change_resolution(df, source_r, target_r):
-#     """
-#     change the resolution of the cell
-#     """
-#     diff_r = 7**(source_r - target_r) # scale up
-#     return (
-#         df
-#         # convert into the designated resolution of the cell
-#         .with_columns(
-#             pl.col('cell')
-#             .h3.change_resolution(target_r).name.suffix(f"_{target_r}"),
-#         )
-#         .groupby(f'cell_{target_r}')
-#         .agg(
-#             pl.count(f'cell_{target_r}').alias('count_')
-#         )
-#         # find the missing h3 cells (uncomplete aggregation, in the boundary)
-#         .filter(
-#             pl.col('count_').eq(diff_r)
-#         )
-#         .select(
-#             pl.col(f'cell_{target_r}')
-#             .h3.change_resolution(source_r)
-#             # .h3.cells_to_string()
-#             .alias('hex_id'),
-#         )
-#     )

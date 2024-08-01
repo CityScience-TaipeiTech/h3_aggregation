@@ -53,7 +53,7 @@ if __name__ == '__main__':
         start_time = time.time()
         
         data = get_data_from_pg(city_name)
-        resolution = 12
+        resolution = 9
 
         # convert to h3
         h3_data = vector_to_cell_hbase(
@@ -65,9 +65,9 @@ if __name__ == '__main__':
         )   
         
         # save to hbase
-        h3_data = (h3_data
-                       .drop(["income_mean", "income_median", "income_first_quartile", "income_third_quartile"])
-                       .rename({'income_mean_avg': 'income_mean', 'income_median_avg': 'income_median', 'income_first_quartile_avg': 'income_first_quartile', 'income_third_quartile_avg': 'income_third_quartile'}))
+        # h3_data = (h3_data
+        #                .drop(["income_mean", "income_median", "income_first_quartile", "income_third_quartile"])
+        #                .rename({'income_mean_avg': 'income_mean', 'income_median_avg': 'income_median', 'income_first_quartile_avg': 'income_first_quartile', 'income_third_quartile_avg': 'income_third_quartile'}))
         
         logging.info(f"===============loading data into hbase...===============")
         
