@@ -22,13 +22,16 @@ def geom_to_wkb(df:gpd.GeoDataFrame)->pl.DataFrame:
     )
     
 
-def wkb_to_cells(df:pl.DataFrame, source_r:int, selected_cols:list, geom_col:str='geometry_wkb'):
+def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', selected_cols:list=[]):
     """
     convert geometry to h3 cells
     df: polars.DataFrame, the input dataframe
     source_r: int, the resolution of the source geometry
     selected_cols: list, the columns to be selected
     """
+    if geom_col not in df.collect_schema().names():
+        raise ValueError(f"Column {geom_col} not found in the input DataFrame, please use `set_geometry()` to set the geometry column first")
+
     # TODO: use lazyframe instaed of eagerframe?
     return (
         df
@@ -40,7 +43,7 @@ def wkb_to_cells(df:pl.DataFrame, source_r:int, selected_cols:list, geom_col:str
                 compact=False,
                 flatten=False
             ).alias('cell'),
-            pl.col(selected_cols)
+            pl.col(selected_cols) if selected_cols else pl.exclude(geom_col)
         )
         .explode('cell')
     )

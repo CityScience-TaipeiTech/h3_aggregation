@@ -1,8 +1,8 @@
 import polars as pl
 from sqlalchemy import create_engine
 import geopandas as gpd
-from h3_tool.main import vector_to_cell_hbase
-from h3_tool.hbase.tools import get_data, put_data
+from h3_toolkit.core import vector_to_cell_hbase
+from h3_toolkit.hbase.client import get_data, put_data
 import time
 
 URI = 'postgresql://airflow:airflow@10.100.2.218:5432/postgres'

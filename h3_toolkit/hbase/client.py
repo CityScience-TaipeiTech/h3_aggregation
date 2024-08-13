@@ -3,11 +3,6 @@ import aiohttp
 import logging
 import polars as pl
 import json
-from datetime import datetime
-import time
-
-GET_URL = 'http://10.100.2.218:2891/api/hbase/v1/test/filterdata2'
-PUT_URL = 'http://10.100.2.218:2891/api/hbase/v1/test/putdata'
 
 class SingletontMeta(type):
     _instances = {}
@@ -109,7 +104,7 @@ class HBaseClient(metaclass=SingletontMeta):
                         {
                             "rowkey": row[rowkey_col],
                             "datas": {
-                                cf: { cq: str(row[cq]) for cq in cq_list},
+                                cf: { cq: str(row[cq]) for cq in cq_list if row[cq] is not None},
                             }
                         } for row in chunk.iter_rows(named=True)
                     ],
@@ -122,7 +117,18 @@ class HBaseClient(metaclass=SingletontMeta):
             # for response in responses:
             #     print(response)
 
-    def fetch_data(self, table_name, cf, cq_list, rowkeys):
+    def fetch_data(self, 
+                table_name:str, 
+                cf:str, 
+                cq_list:list[str], 
+                rowkeys:list[str]
+        )->pl.DataFrame:
+        """
+        table_name: str, the table name in HBase, ex: "res12_pre_data"
+        cf: str, the column family in HBase, ex: "demographic"
+        cq_list: list[str], the column qualifier in HBase, ex: ["p_cnt", "h_cnt"]
+        rowkeys: list[str], the rowkeys to be fetched, ex: ["8c4ba0a415749ff","8c4ba0a415741ff"]
+        """
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(self._fetch_data_main(table_name, cf, cq_list, rowkeys))
         result = (
@@ -134,9 +140,24 @@ class HBaseClient(metaclass=SingletontMeta):
                 pl.exclude("row")
             )
         )
+        
+        if result.is_empty():
+            logging.warning(f"No data fetched from HBase")
+
         return result
 
-    def send_data(self, data, table_name, cf, cq_list, rowkey_col, timestamp=None):
+    def send_data(self, 
+                data:pl.DataFrame, 
+                table_name:str, 
+                cf:str, 
+                cq_list:list[str], 
+                rowkey_col="hex_id", 
+                timestamp=None
+        ):
+        """
+        rowkey_col: str, the column name of rowkey, default is "hex_id"
+        timestamp: str, if timestamp is None, it will use the current time
+        """
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self._send_data_main(data, table_name, cf, cq_list, rowkey_col, timestamp))
 
