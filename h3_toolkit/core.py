@@ -17,7 +17,7 @@ class H3Aggregator:
     def __init__(self):
         self.strategy:Callable[[pl.DataFrame, ]] = None
         self.target_cols:list[str] = []
-        # self.agg_col:Optional[str] = None
+        self.agg_col:Optional[str] = None
         self.geometry_col:str = 'geometry_wkb'
         self.resolution:int = 12
     
@@ -51,17 +51,16 @@ class H3Aggregator:
         return self
     
     def process(self, data: gpd.GeoDataFrame | pl.DataFrame)-> pl.DataFrame:
-
         if isinstance(data, gpd.GeoDataFrame):
             logging.info("Converting GeoDataFrame to polars.DataFrame")
-            data = geom_to_wkb(data)
+            data = geom_to_wkb(data, self.geometry_col)
 
         logging.info(f"Start converting data to h3 cells in resolution {self.resolution}")
         result = (
             data
             .fill_nan(0)
             .lazy()
-            .pipe(wkb_to_cells, self.resolution, [self.agg_col] + self.target_cols if self.agg_col else self.target_cols, self.geometry_col) # convert geometry to h3 cells
+            .pipe(wkb_to_cells, self.resolution, self.geometry_col, [self.agg_col] + self.target_cols if self.agg_col else self.target_cols) # convert geometry to h3 cells
             .pipe(self._apply_strategy) # apply the aggregation strategy
             .select(  # Convert the cell(unit64) to string
                 pl.col('cell').h3.cells_to_string().alias('hex_id'),
@@ -121,7 +120,7 @@ class H3AggregatorUp:
                          column_qualifier: list[str],
                          data: pl.DataFrame | gpd.GeoDataFrame,
         ) -> H3AggregatorUp:
-        data = data if isinstance(data, pl.DataFrame) else geom_to_wkb(data)
+        data = data if isinstance(data, pl.DataFrame) else geom_to_wkb(data, self.geometry_col)
 
         if not self.client:
             raise ValueError("HBase client must be set before fetching data, use `set_client()` to set the client")

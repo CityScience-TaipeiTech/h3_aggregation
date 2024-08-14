@@ -4,7 +4,7 @@ from shapely import to_wkb
 from h3ronpy import ContainmentMode as Cont
 import h3ronpy.polars
 
-def geom_to_wkb(df:gpd.GeoDataFrame)->pl.DataFrame:
+def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
     """
     convert GeoDataFrame to polars.DataFrame
     (geometry to wkb)
@@ -12,13 +12,18 @@ def geom_to_wkb(df:gpd.GeoDataFrame)->pl.DataFrame:
     if df.crs != 'epsg:4326':
         raise ValueError("The input GeoDataFrame CRS must be in EPSG:4326")
 
+    # 確保input跟output的geometry的column name不會改變，但是從geometry type to wkb
     df = (
         df
-        .assign(geometry_wkb = lambda df: to_wkb(df['geometry']))
-        .drop('geometry', axis=1)
+        .rename(columns={geometry: 'ready_to_convert'})
+        .assign(geometry_wkb = lambda df: to_wkb(df['ready_to_convert']))
+        .drop('ready_to_convert', axis=1)  # drop geometry column to convert geodataframe to dataframe  
+        .rename(columns={'geometry_wkb': geometry})
     )
+    
     return (
-        pl.DataFrame(df)
+        # pandas to polars
+        pl.from_pandas(df)
     )
     
 
@@ -30,7 +35,7 @@ def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', sel
     selected_cols: list, the columns to be selected
     """
     if geom_col not in df.collect_schema().names():
-        raise ValueError(f"Column {geom_col} not found in the input DataFrame, please use `set_geometry()` to set the geometry column first")
+        raise ValueError(f"Column '{geom_col}' not found in the input DataFrame, please use `set_geometry()` to set the geometry column first")
 
     # TODO: use lazyframe instaed of eagerframe?
     return (
