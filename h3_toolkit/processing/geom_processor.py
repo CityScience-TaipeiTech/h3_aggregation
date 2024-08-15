@@ -11,8 +11,11 @@ def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
     """
     if df.crs != 'epsg:4326':
         raise ValueError("The input GeoDataFrame CRS must be in EPSG:4326")
+    
+    if geometry not in df.columns:
+        raise ValueError(f"Column '{geometry}' not found in the input GeoDataFrame")
 
-    # 確保input跟output的geometry的column name不會改變，但是從geometry type to wkb
+    # 確保input跟output的geometry的column name不會改變，同時從geometry type 轉換成 wkb
     df = (
         df
         .rename(columns={geometry: 'ready_to_convert'})
@@ -21,13 +24,15 @@ def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
         .rename(columns={'geometry_wkb': geometry})
     )
     
+
+
     return (
         # pandas to polars
         pl.from_pandas(df)
     )
     
 
-def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', selected_cols:list=[]):
+def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', selected_cols:list=[])->pl.DataFrame:
     """
     convert geometry to h3 cells
     df: polars.DataFrame, the input dataframe

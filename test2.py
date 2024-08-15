@@ -63,17 +63,17 @@ result = (
     .process(db_data)
 )
 
-# aggregator = H3AggregatorUp()
-# result = (
-#     aggregator
-#     .set_client(HBaseClient())
-#     .set_resolution_source(12)
-#     .set_resolution_target(9)
-#     .set_geometry('geometry')
-#     .sum(target_cols=["p_cnt"])
-#     .fetch_hbase_data(table_name = 'res12_pre_data', column_family = 'demographic', column_qualifier = ['p_cnt'], data = db_data)
-#     .process()
-# )   
+aggregator = H3AggregatorUp()
+result = (
+    aggregator
+    .set_client(HBaseClient())
+    .set_resolution_source(12)
+    .set_resolution_target(9)
+    .set_geometry('geometry')
+    .sum(target_cols=["p_cnt"])
+    .fetch_hbase_data(table_name = 'res12_pre_data', column_family = 'demographic', column_qualifier = ['p_cnt'], data = db_data)
+    .process()
+)   
 
 # result.write_csv("result_9.csv")
 # client = HBaseClient()

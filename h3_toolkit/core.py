@@ -55,12 +55,17 @@ class H3Aggregator:
             logging.info("Converting GeoDataFrame to polars.DataFrame")
             data = geom_to_wkb(data, self.geometry_col)
 
+        selected_cols = []
+        if self.agg_col:
+            selected_cols.append(self.agg_col)
+        selected_cols.extend(self.target_cols)
+
         logging.info(f"Start converting data to h3 cells in resolution {self.resolution}")
         result = (
             data
             .fill_nan(0)
             .lazy()
-            .pipe(wkb_to_cells, self.resolution, self.geometry_col, [self.agg_col] + self.target_cols if self.agg_col else self.target_cols) # convert geometry to h3 cells
+            .pipe(wkb_to_cells, self.resolution, self.geometry_col, selected_cols) # convert geometry to h3 cells
             .pipe(self._apply_strategy) # apply the aggregation strategy
             .select(  # Convert the cell(unit64) to string
                 pl.col('cell').h3.cells_to_string().alias('hex_id'),

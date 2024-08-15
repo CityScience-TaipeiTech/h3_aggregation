@@ -16,12 +16,12 @@ class SumAggregation(AggregationStrategy):
             raise ValueError("agg_cols must be provided when using sum aggregation")
         return (    
             df
-            .with_columns(
+            .with_columns([
                 # first / count over agg_cols(usually is a boundary)
-                ((pl.first(target_cols).over(agg_col)) /
-                (pl.count(target_cols).over(agg_col)))
-                .name.suffix("_sum")
-            )
+                ((pl.first(col).over(agg_col)) /
+                (pl.count(col).over(agg_col))).alias(col) # 覆蓋掉原來的column
+                for col in target_cols
+            ])
         )
     
 class SumAggregationUp(AggregationStrategy):
@@ -49,9 +49,10 @@ class AvgAggregation(AggregationStrategy):
     def apply(self, df: pl.DataFrame, target_cols: list[str], agg_col: str) -> pl.DataFrame:
         return (
             df
-            .with_columns(
-                pl.col(target_cols).name.suffix("_avg")
-            )
+            .with_columns([
+                pl.col(col).alias(col)
+                for col in target_cols
+            ])
         )
 
 class AvgAggregationUp(AggregationStrategy):
@@ -66,6 +67,7 @@ class AvgAggregationUp(AggregationStrategy):
             )
         )
 
+# TODO: 改名字，不要用_count結尾
 class CountAggregation(AggregationStrategy):
     def apply(self, df: pl.DataFrame, target_cols: list[str], agg_col: str) -> pl.DataFrame:
         return (
