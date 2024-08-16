@@ -31,14 +31,22 @@ def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
         pl.from_pandas(df)
     )
     
-
-def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', selected_cols:list=[])->pl.DataFrame:
+def wkb_to_cells(df:pl.DataFrame, 
+                 source_r:int, 
+                 geom_col:str=None, 
+                 selected_cols:list=[],
+                 mode:Cont=Cont.ContainsCentroid
+                 )->pl.DataFrame:
     """
     convert geometry to h3 cells
     df: polars.DataFrame, the input dataframe
     source_r: int, the resolution of the source geometry
     selected_cols: list, the columns to be selected
     """
+    # 不需要對geometry進行處裡
+    if geom_col is None:
+        return df
+
     if geom_col not in df.collect_schema().names():
         raise ValueError(f"Column '{geom_col}' not found in the input DataFrame, please use `set_geometry()` to set the geometry column first")
 
@@ -49,7 +57,7 @@ def wkb_to_cells(df:pl.DataFrame, source_r:int, geom_col:str='geometry_wkb', sel
             pl.col(geom_col)
             .custom.custom_wkb_to_cells(
                 resolution=source_r,
-                containment_mode=Cont.ContainsCentroid,
+                containment_mode=mode,
                 compact=False,
                 flatten=False
             ).alias('cell'),

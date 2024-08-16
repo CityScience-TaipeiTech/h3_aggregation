@@ -1,7 +1,34 @@
-/.venv
-poetry.lock
-pyproject.toml
+# Environments
+.env
+.venv
+env/
+venv/
+
+# poetry.lock
+# pyproject.toml
+
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Sphinx documentation
+docs/_build/
+
+# Distribution / packaging
+dist/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# custom
+testing.py
+test.py
+constant.py
+data_for_display.py
 /testing_file
 .DS_Store
-**/__pycache__
-__pycache__/

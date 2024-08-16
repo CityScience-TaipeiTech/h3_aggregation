@@ -76,7 +76,7 @@ class CountAggregation(AggregationStrategy):
             .agg([
                 pl.count().alias(f'{'_'.join(target_cols)}_count'),
             ])
-            .fill_null('null')
+            .fill_null('null') # 空值填"null"
             .collect()
             # lazyframe -> dataframe, dataframe is needed for pivot
             .pivot(

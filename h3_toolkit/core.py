@@ -18,12 +18,15 @@ class H3Aggregator:
         self.strategy:Callable[[pl.DataFrame, ]] = None
         self.target_cols:list[str] = []
         self.agg_col:Optional[str] = None
-        self.geometry_col:str = 'geometry_wkb'
+        self.geometry_col:str = None
+        self.hex_id:str = None
         self.resolution:int = 12
     
     def _apply_strategy(self, df: pl.DataFrame) -> pl.DataFrame:
+        # 可以不指定strategy，不指定strategy就直接回傳hexegon中心點對應到的值
         if self.strategy is None:
-            raise ValueError("Aggregation strategy must be set before processing data") 
+            return df
+            # raise ValueError("Aggregation strategy must be set before processing data")
         return  self.strategy.apply(df, self.target_cols, self.agg_col)
             
     def sum(self, target_cols: list[str], agg_col: str) -> H3Aggregator:
@@ -46,8 +49,23 @@ class H3Aggregator:
         self.resolution = resolution
         return self
     
-    def set_geometry(self, geometry_col: str) -> H3Aggregator:
+    def set_geometry(self, geometry_col: str=None) -> H3Aggregator:
+        """
+        要處理地理空間資料之前一定要set_geometry
+        """
         self.geometry_col = geometry_col
+        return self
+    
+    # TODO: 好像要刪除???
+    # def set_hexegon(self, hex_col: str=None) -> H3Aggregator:
+    #     """
+    #     要傳入的如果是hex_id，就要set_hexegon
+    #     """
+    #     self.hex_col = hex_col
+    #     return self
+
+    def set_target_cols(self, target_cols: list[str]) -> H3Aggregator:
+        self.target_cols = target_cols
         return self
     
     def process(self, data: gpd.GeoDataFrame | pl.DataFrame)-> pl.DataFrame:
@@ -125,6 +143,11 @@ class H3AggregatorUp:
                          column_qualifier: list[str],
                          data: pl.DataFrame | gpd.GeoDataFrame,
         ) -> H3AggregatorUp:
+
+        """
+        data只需傳入geometry的資訊即可，需要去hbase抓資料, based on geometry的hex_id
+        """
+
         data = data if isinstance(data, pl.DataFrame) else geom_to_wkb(data, self.geometry_col)
 
         if not self.client:
@@ -137,7 +160,6 @@ class H3AggregatorUp:
             .pipe(wkb_to_cells, self.resolution_source, self.geometry_col) # convert geometry to h3 cells
             .select(
                 pl.col('cell')
-                .h3.change_resolution(self.resolution_source)
                 .h3.cells_to_string()
                 .unique()
                 .alias('hex_id'), # scale down to resolution 12
@@ -153,17 +175,24 @@ class H3AggregatorUp:
         return self
     
     def process(self) -> pl.DataFrame:
+
         result = (
             self.data
             .lazy() 
             .with_columns(
+                # 根據hex_id做resolution的轉換
                 pl.col('hex_id')
                 .h3.cells_parse()
                 .h3.change_resolution(self.resolution_target)
                 .alias('cell')
             ) 
             .pipe(self._apply_strategy)
-            .select(pl.col('cell').h3.cells_to_string().alias('hex_id'), pl.exclude('cell'))
+            
+            .select(
+                pl.col('cell')
+                    .h3.cells_to_string()
+                    .alias('hex_id'), 
+                pl.exclude('cell'))
             .collect(streaming=True)
         )
         return result
