@@ -16,16 +16,35 @@ aiohttp = "^3.9.5"
 ipykernel = "^6.29.5"
 pytest = "^8.3.2"
 pytest-cov = "^5.0.0"
-sqlalchemy = "1.4.52"
-geoalchemy2 = "0.15.2"
-psycopg2-binary = "^2.9.9"
-sphinx = "^8.0.2"
-ruff = "^0.6.0"
+sqlalchemy = "1.4.52"  # test for connecting to db
+geoalchemy2 = "0.15.2"  # test for connecting to db
+psycopg2-binary = "^2.9.9"  # test for connecting to db
+sphinx = "^8.0.2"  # documentation tool
+ruff = "^0.6.0"  # linter
+sphinx-rtd-theme = {git = "https://github.com/readthedocs/sphinx_rtd_theme.git", rev = "humitos/plan-3.0"}  # documentation tool
+pre-commit = "^3.8.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.ruff]
-select = ["E", "F"]
-ignore = []
+[tool.ruff] # https://docs.astral.sh/ruff/settings/#top-level
+line-length = 100
+
+[tool.ruff.lint] # https://docs.astral.sh/ruff/settings/#lint
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E402",  # module level import not at top of file
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.pydocstyle]
+convention = "google"
