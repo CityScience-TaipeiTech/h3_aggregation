@@ -1,8 +1,8 @@
-import polars as pl
 import geopandas as gpd
-from shapely import to_wkb
+import polars as pl
 from h3ronpy import ContainmentMode as Cont
-import h3ronpy.polars
+from shapely import to_wkb
+
 
 def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
     """
@@ -11,7 +11,7 @@ def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
     """
     if df.crs != 'epsg:4326':
         raise ValueError("The input GeoDataFrame CRS must be in EPSG:4326")
-    
+
     if geometry not in df.columns:
         raise ValueError(f"Column '{geometry}' not found in the input GeoDataFrame")
 
@@ -20,20 +20,20 @@ def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
         df
         .rename(columns={geometry: 'ready_to_convert'})
         .assign(geometry_wkb = lambda df: to_wkb(df['ready_to_convert']))
-        .drop('ready_to_convert', axis=1)  # drop geometry column to convert geodataframe to dataframe  
+        .drop('ready_to_convert', axis=1) # drop geometry column (convert geodataframe to dataframe)
         .rename(columns={'geometry_wkb': geometry})
     )
-    
+
 
 
     return (
         # pandas to polars
         pl.from_pandas(df)
     )
-    
-def wkb_to_cells(df:pl.DataFrame, 
-                 source_r:int, 
-                 geom_col:str=None, 
+
+def wkb_to_cells(df:pl.DataFrame,
+                 source_r:int,
+                 geom_col:str=None,
                  selected_cols:list=[],
                  mode:Cont=Cont.ContainsCentroid
                  )->pl.DataFrame:
@@ -48,7 +48,8 @@ def wkb_to_cells(df:pl.DataFrame,
         return df
 
     if geom_col not in df.collect_schema().names():
-        raise ValueError(f"Column '{geom_col}' not found in the input DataFrame, please use `set_geometry()` to set the geometry column first")
+        raise ValueError(f"Column '{geom_col}' not found in the input DataFrame, \
+                         please use `set_geometry()` to set the geometry column first")
 
     # TODO: use lazyframe instaed of eagerframe?
     return (

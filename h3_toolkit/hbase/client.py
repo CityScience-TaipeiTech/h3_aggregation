@@ -1,9 +1,11 @@
 import asyncio
-import aiohttp
-import logging
-import polars as pl
-import json
 import gc
+import json
+import logging
+
+import aiohttp
+import polars as pl
+
 
 class SingletontMeta(type):
     _instances = {}
@@ -68,7 +70,10 @@ class HBaseClient(metaclass=SingletontMeta):
             responses = await asyncio.gather(*tasks)
 
             # process
-            dfs = [pl.DataFrame(response[key]) for response in responses if response for key in response.keys()]
+            dfs = [
+                pl.DataFrame(response[key])
+                for response in responses if response for key in response.keys()
+            ]
             return pl.concat(dfs, how='vertical')
 
     # async def _fetch_data_chunks(self, session, table_name, cf, cq_list, rowkeys):
@@ -83,7 +88,8 @@ class HBaseClient(metaclass=SingletontMeta):
     # async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys):
     #     async with aiohttp.ClientSession() as session:
     #         fetch_data_chunks = self._fetch_data_chunks(session, table_name, cf, cq_list, rowkeys)
-    #         tasks = [self._fetch_data_with_retry(session, form_data) for form_data in fetch_data_chunks]
+    #         tasks = [self._fetch_data_with_retry(session, form_data)
+    #                   for form_data in fetch_data_chunks]
 
     #         responses = await asyncio.gather(*tasks)
     #         dfs = []
@@ -141,11 +147,12 @@ class HBaseClient(metaclass=SingletontMeta):
                 }
                 tasks.append(self._send_data_with_retry(session, result))
 
-            responses = await asyncio.gather(*tasks)
+            _ = await asyncio.gather(*tasks)
             # for response in responses:
             #     print(response)
 
-    # async def _send_data_chunks(self, session, data, table_name, cf, cq_list, rowkey_col, timestamp):
+    # async def _send_data_chunks(self, session, data, table_name, cf, cq_list, rowkey_col,
+    #                               timestamp):
     #     for start in range(0, len(data), self.chunk_size):
     #         chunk = data.slice(start, self.chunk_size)
     #         result = {
@@ -164,7 +171,8 @@ class HBaseClient(metaclass=SingletontMeta):
 
     # async def _send_data_main(self, data, table_name, cf, cq_list, rowkey_col, timestamp):
     #     async with aiohttp.ClientSession() as session:
-    #         send_data_chunks = self._send_data_chunks(session, data, table_name, cf, cq_list, rowkey_col, timestamp)
+    #         send_data_chunks = self._send_data_chunks(session, data, table_name, cf, cq_list,
+    #                               rowkey_col, timestamp)
     #         tasks = [self._send_data_with_retry(session, result) for result in send_data_chunks]
 
     #         responses = await asyncio.gather(*tasks)
@@ -191,22 +199,22 @@ class HBaseClient(metaclass=SingletontMeta):
             .unnest('properties')
             .pivot(index="row", values="value", on="qualifier")
             .select(
-                pl.col("row").alias("hex_id"), 
+                pl.col("row").alias("hex_id"),
                 pl.exclude("row")
             )
         )
-        
+
         if result.is_empty():
-            logging.warning(f"No data fetched from HBase")
+            logging.warning("No data fetched from HBase")
 
         return result
 
-    def send_data(self, 
-                data:pl.DataFrame, 
-                table_name:str, 
-                cf:str, 
-                cq_list:list[str], 
-                rowkey_col="hex_id", 
+    def send_data(self,
+                data:pl.DataFrame,
+                table_name:str,
+                cf:str,
+                cq_list:list[str],
+                rowkey_col="hex_id",
                 timestamp=None
         ):
         """
@@ -214,13 +222,15 @@ class HBaseClient(metaclass=SingletontMeta):
         timestamp: str, if timestamp is None, it will use the current time
         """
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._send_data_main(data, table_name, cf, cq_list, rowkey_col, timestamp))
+        loop.run_until_complete(self._send_data_main(
+            data, table_name, cf, cq_list, rowkey_col, timestamp
+        ))
         del data
         gc.collect()
 
 if __name__ == '__main__':
     client = HBaseClient()
-    
+
     # Example for Get data
     table_name = "example_table"
     cf = "cf"

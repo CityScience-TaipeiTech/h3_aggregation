@@ -23,6 +23,10 @@ sphinx = "^8.0.2"  # documentation tool
 ruff = "^0.6.0"  # linter
 sphinx-rtd-theme = {git = "https://github.com/readthedocs/sphinx_rtd_theme.git", rev = "humitos/plan-3.0"}  # documentation tool
 pre-commit = "^3.8.0"
+mypy = "^1.11.1"
+connectorx = "^0.3.3"
+pydeck = "^0.9.1"
+matplotlib = "^3.9.2"
 
 [build-system]
 requires = ["poetry-core"]
@@ -43,8 +47,8 @@ ignore = [
     "E402",  # module level import not at top of file
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.format]
 quote-style = "double"
-
-[tool.ruff.pydocstyle]
-convention = "google"

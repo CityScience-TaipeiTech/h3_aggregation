@@ -23,7 +23,7 @@ from h3_toolkit.aggregation.strategy import SumAggregation, AvgAggregation, Coun
 from h3_toolkit.processing.geom_processor import geom_to_wkb, wkb_to_cells
 
 
-# TODO: 將重複的邏輯抽取出來 
+# TODO: 將重複的邏輯抽取出來
 
 class H3Aggregator:
     def __init__(self):
@@ -193,7 +193,7 @@ class H3AggregatorUp:
             rowkeys=rowkeys['hex_id'].to_list(),
         )
         return self
-    
+
     def process(self) -> pl.DataFrame:
 
         result = (
