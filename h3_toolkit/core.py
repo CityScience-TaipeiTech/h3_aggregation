@@ -1,3 +1,12 @@
+"""
+A core module for h3_toolkit
+
+.. module:: core
+
+.. moduleauthor:: Ian Huang
+
+"""
+
 from __future__ import annotations
 from enum import Enum
 from typing import Literal, Callable, Optional
@@ -13,23 +22,34 @@ from h3_toolkit.aggregation.strategy import SumAggregation, AvgAggregation, Coun
 # from h3_toolkit.aggregation.aggregator_up import _sum_agg, _avg_agg
 from h3_toolkit.processing.geom_processor import geom_to_wkb, wkb_to_cells
 
+
+# TODO: 將重複的邏輯抽取出來
+
 class H3Aggregator:
     def __init__(self):
         self.strategy:Callable[[pl.DataFrame, ]] = None
         self.target_cols:list[str] = []
-        self.agg_col:Optional[str] = None
+        self.agg_col: str | None = None
         self.geometry_col:str = None
         self.hex_id:str = None
         self.resolution:int = 12
-    
+
     def _apply_strategy(self, df: pl.DataFrame) -> pl.DataFrame:
         # 可以不指定strategy，不指定strategy就直接回傳hexegon中心點對應到的值
         if self.strategy is None:
             return df
             # raise ValueError("Aggregation strategy must be set before processing data")
         return  self.strategy.apply(df, self.target_cols, self.agg_col)
-            
+
     def sum(self, target_cols: list[str], agg_col: str) -> H3Aggregator:
+        """This function is used to divide the value equally of target columns based on the aggregation column
+
+        Args:
+            target_cols (list[str]): The columns to be aggregated
+            agg_col (str): The column to be aggregated by, usually is a boundary
+        Returns:
+            H3Aggregator: The H3Aggregator object
+        """
         self.strategy = SumAggregation()
         self.target_cols = target_cols
         self.agg_col = agg_col
@@ -173,30 +193,28 @@ class H3AggregatorUp:
             rowkeys=rowkeys['hex_id'].to_list(),
         )
         return self
-    
+
     def process(self) -> pl.DataFrame:
 
         result = (
             self.data
-            .lazy() 
+            .lazy()
             .with_columns(
                 # 根據hex_id做resolution的轉換
                 pl.col('hex_id')
                 .h3.cells_parse()
                 .h3.change_resolution(self.resolution_target)
                 .alias('cell')
-            ) 
+            )
             .pipe(self._apply_strategy)
-            
             .select(
                 pl.col('cell')
                     .h3.cells_to_string()
-                    .alias('hex_id'), 
+                    .alias('hex_id'),
                 pl.exclude('cell'))
             .collect(streaming=True)
         )
         return result
-    
 
 
 

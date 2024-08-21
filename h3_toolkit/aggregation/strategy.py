@@ -1,6 +1,7 @@
-import polars as pl
-import h3ronpy.polars
 from abc import ABC, abstractmethod
+
+import polars as pl
+
 
 class AggregationStrategy(ABC):
     @abstractmethod
@@ -14,7 +15,7 @@ class SumAggregation(AggregationStrategy):
     def apply(self, df: pl.DataFrame, target_cols: list[str], agg_col: str) -> pl.DataFrame:
         if agg_col is None:
             raise ValueError("agg_cols must be provided when using sum aggregation")
-        return (    
+        return (
             df
             .with_columns([
                 # first / count over agg_cols(usually is a boundary)
@@ -23,7 +24,7 @@ class SumAggregation(AggregationStrategy):
                 for col in target_cols
             ])
         )
-    
+
 class SumAggregationUp(AggregationStrategy):
     """
     用於將小的reslution scale up 到大的resolution
@@ -90,7 +91,7 @@ class CountAggregation(AggregationStrategy):
             # dataframe -> lazyframe
             .lazy()
         )
-    
+
 # TODO:
 class MajorAggregation(AggregationStrategy):
     def apply(self, df: pl.DataFrame, target_cols: list[str], agg_col: str) -> pl.DataFrame:
@@ -109,7 +110,7 @@ class PercentageAggregation(AggregationStrategy):
 
 #     if agg_col is None:
 #         raise ValueError("agg_cols must be provided when using sum aggregation")
-    
+
 #     return (
 #         df
 #         .with_columns(
