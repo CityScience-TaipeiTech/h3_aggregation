@@ -75,8 +75,9 @@ def cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
         gpd.GeoDataFrame(
             df
             .select(
-                pl.exclude('cell'),
-                pl.col('cell')
+                pl.exclude('hex_id'),
+                pl.col('hex_id')
+                .h3.cells_parse()
                 .custom.custom_cells_to_wkb_polygons()
                 .custom.custom_from_wkb()
                 .alias('geometry')

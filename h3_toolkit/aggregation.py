@@ -45,6 +45,35 @@ class Centroid(AggregationStrategy):
             ])
         )
 
+class SumUp(AggregationStrategy):
+    def apply(self, df: pl.DataFrame, target_cols: list[str]) -> pl.DataFrame:
+        """
+        Scale Up Function
+        target_cols: list, the columns to be aggregated
+        """
+        # target_cols = [target_col for target_col in target_cols if target_col in df.collect_schema().names()]
+        return (
+            df
+            .group_by(
+                'cell'
+            )
+            .agg(
+                pl.col(target_cols).cast(pl.Float64).sum()
+            )
+        )
+
+class Mean(AggregationStrategy):
+    def apply(self, data: pl.LazyFrame, target_cols: list[str]) -> pl.LazyFrame:
+        return (
+            data
+            .group_by(
+                'cell'
+            )
+            .agg(
+                pl.col(target_cols).cast(pl.Float64).mean()
+            )
+        )
+
 class Count(AggregationStrategy):
     def apply(self, data:pl.LazyFrame, target_cols:list[str]) -> pl.LazyFrame:
         return (

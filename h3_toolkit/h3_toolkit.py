@@ -4,7 +4,9 @@ import logging
 
 import geopandas as gpd
 import h3ronpy.polars  # noqa: F401
+from h3ronpy.polars.raster import raster_to_dataframe
 import polars as pl
+
 
 from .aggregation import AggregationStrategy
 from .exceptions import (
@@ -13,8 +15,8 @@ from .exceptions import (
     InputDataTypeError,
     ResolutionRangeError,
 )
-from .hbase_tools import HBaseClient
-from .utils import geom_to_wkb, wkb_to_cells
+from .hbase import HBaseClient
+from .utils import geom_to_wkb, wkb_to_cells, cell_to_geom
 
 
 class H3Toolkit:
@@ -25,12 +27,11 @@ class H3Toolkit:
         self.source_resolution:int = None
         self.target_resolution:int = None
         self.raw_data = None
-        # self.h3_data = None
-        self.result = None
+        self.result:pl.DataFrame = None
 
     def set_aggregation_strategy(
         self,
-        strategies:dict[str | list[str], AggregationStrategy]
+        strategies:dict[str | tuple[str], AggregationStrategy]
     ) -> H3Toolkit:
         """
         Set the aggregation strategies for the designated columns(properties) in the input data
@@ -67,13 +68,48 @@ class H3Toolkit:
         return df
 
     # TODO: from raster to h3
-    def process_from_raster():
-        pass
+    def process_from_raster(
+        self,
+        data: list[list[int | float]],
+        transform,
+        resolution:int = 12,
+        nodata_value:float | int | None = None,
+        compact:bool = False,
+    ) -> H3Toolkit:
+
+        # check resolution is from 0 to 15
+        if resolution not in range(0, 16):
+            raise ResolutionRangeError("""
+                The resolution must be an integer from 0 to 15, please refer to the H3 documentation
+            """)
+        else:
+            self.source_resolution = resolution
+
+        self.raw_data = raster_to_dataframe(
+            in_raster = data,
+            transform = transform,
+            h3_resolution = resolution,
+            nodata_value = nodata_value,
+            compact = compact
+        )
+
+        self.result = (
+            self.raw_data
+            .lazy()
+            .select(
+                pl.col('cell')
+                .h3.cells_to_string().alias('hex_id'),
+                pl.exclude('cell')
+            )
+            .collect(streaming=True)
+        )
+
+        return self
 
     # TODO: 命名方式
     def process_from_geometry(
         self,
-        data_with_geom: pl.DataFrame | gpd.GeoDataFrame,
+        data: pl.DataFrame | gpd.GeoDataFrame,
         resolution:int = 12,
         geometry_col:str = 'geometry'
     ) -> H3Toolkit:
@@ -100,10 +136,10 @@ class H3Toolkit:
             self.source_resolution = resolution
 
         # check the input data type
-        if isinstance(data_with_geom, gpd.GeoDataFrame):
-            self.raw_data = geom_to_wkb(data_with_geom, geometry_col)
-        elif isinstance(data_with_geom, pl.DataFrame):
-            self.raw_data = data_with_geom
+        if isinstance(data, gpd.GeoDataFrame):
+            self.raw_data = geom_to_wkb(data, geometry_col)
+        elif isinstance(data, pl.DataFrame):
+            self.raw_data = data
         else:
             raise InputDataTypeError("""
                 The input data must be either a GeoDataFrame or a DataFrame with geo-spatial
@@ -141,6 +177,12 @@ class H3Toolkit:
             .collect(streaming=True)
         )
 
+        # Potential hex_id loss: check if there is any null value in the hex_id column
+        
+        # resolution選太大就會有null！
+        if self.result.select(pl.col('hex_id').is_null().any()).item():
+            logging.warning("potential hex_id loss: please select the higher resolution and with `process_from_h3()`")
+
         logging.info(self.result.head(5))
         logging.info(f"Successfully converting data to h3 cells in resolution \
                      {self.source_resolution}")
@@ -170,7 +212,7 @@ class H3Toolkit:
             column_qualifier (list[str]): The list of column qualifiers in HBase, ie: ['p_cnt']
         """
 
-        if not self.result:
+        if self.result.is_empty():
             raise ValueError("Please provide the h3 index first \
                              before fetching data from HBase.")
         # TODO: check the HBase client is set 可能要寫set_client
@@ -205,7 +247,7 @@ class H3Toolkit:
             timestamp (int): The timestamp of the data, default is None, using the current time
         """
 
-        if not self.result:
+        if self.result.is_empty():
             raise ValueError("Please process the data first \
                              before sending data to HBase.")
 
@@ -226,18 +268,38 @@ class H3Toolkit:
 
     def process_from_h3(
         self,
-        data_with_h3:pl.DataFrame = None,
-        resolution:int = 7,
+        data:pl.DataFrame = None,
+        target_resolution:int = 7,
+        source_resolution:int = None,
         h3_col:str = 'hex_id'
     ) -> H3Toolkit:
 
+        # if data_with_h3 is provided, use the data_with_h3
+        if data is not None:
+            self.result = data
+
+        # 如果前面執行過process_from_geometry，就會有source_resolution
+        if self.source_resolution:
+            source_resolution = self.source_resolution
+
         # check resolution is from 0 to 15
-        if resolution not in range(0, 16):
+        if source_resolution  not in range(0, 16) or \
+            target_resolution not in range(0, 16):
             raise ResolutionRangeError("""
                 The resolution must be an integer from 0 to 15, please refer to the H3 documentation
             """)
+        elif source_resolution <= target_resolution:
+            raise ResolutionRangeError("""
+                The target resolution must be lower than the source resolution
+                ie: source_resolution: 12, target_resolution: 7
+            """)
         else:
-            self.target_resolution = resolution
+            self.target_resolution = target_resolution
+            self.source_resolution = source_resolution
+
+        # 判斷h3_col是否在data裡面
+        if h3_col not in self.result.columns:
+            raise ColumnNotFoundError(f"Column '{h3_col}' not found in the input DataFrame")
 
         # TODO: target resolution 不能大於 source resolution？
 
@@ -246,20 +308,17 @@ class H3Toolkit:
             for cols in self.aggregation_strategies.keys():
                 cols = [cols] if isinstance(cols, str) else cols
                 # selected_cols.update(cols)
-                missing_cols = [col for col in cols if col not in self.raw_data.columns]
+                missing_cols = [col for col in cols if col not in self.result.columns]
                 if missing_cols:
                     raise ColumnNotFoundError(f"""
                         The column '{', '.join(missing_cols)}' not found in the input data,
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
 
-        # if data_with_h3 is provided, use the data_with_h3
-        if data_with_h3 is not None:
-            self.result = data_with_h3
-
         self.result = (
             self.result
             .lazy()
+            .drop_nulls(subset=[h3_col])# 沒有h3 index的row就直接刪掉
             .with_columns(
                 # 根據h3_col做resolution的轉換
                 pl.col(h3_col)
@@ -268,7 +327,9 @@ class H3Toolkit:
                 .alias('cell')
             )
             .pipe(self._apply_strategy)
-            .drop(h3_col)
+            .select(
+                pl.all().exclude(h3_col)
+            )
             .select(
                 pl.col('cell')
                     .h3.cells_to_string()
@@ -276,7 +337,7 @@ class H3Toolkit:
                 pl.exclude('cell')
                 )
 
-            # TODO: 評估一下
+            # can't have duplicate hex_id in the result
             .unique(subset=[h3_col])
             .collect(streaming=True)
         )
@@ -287,9 +348,16 @@ class H3Toolkit:
     def h3_to_geom():
         pass
 
-    def get_result(self) -> pl.DataFrame:
+    def get_result(self, convert_to_geom:bool=False) -> pl.DataFrame | gpd.GeoDataFrame:
         """Get the result of the data processing.
         Returns:
             pl.DataFrame: The processed data with H3 cells in the specific resolution.
         """
-        return self.result
+        if convert_to_geom:
+            result = (
+                self.result
+                .pipe(cell_to_geom)
+            )
+        else:
+            result = self.result
+        return result
