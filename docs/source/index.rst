@@ -28,7 +28,7 @@ Get started with h3-toolkit to enhance your geospatial data processing and make 
    :maxdepth: 3
    :caption: Documentation
 
-   Installation <>
    API Documentation <api/modules>
    Usage Examples <usage/index>
-   
+
+.. Installation <>   
