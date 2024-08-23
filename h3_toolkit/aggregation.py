@@ -51,7 +51,8 @@ class SumUp(AggregationStrategy):
         Scale Up Function
         target_cols: list, the columns to be aggregated
         """
-        # target_cols = [target_col for target_col in target_cols if target_col in df.collect_schema().names()]
+        # target_cols = [
+        # target_col for target_col in target_cols if target_col in df.collect_schema().names()]
         return (
             df
             .group_by(
@@ -76,23 +77,34 @@ class Mean(AggregationStrategy):
 
 class Count(AggregationStrategy):
     def apply(self, data:pl.LazyFrame, target_cols:list[str]) -> pl.LazyFrame:
-        return (
-            data
-            .group_by(['cell', *target_cols])
-            .agg([
-                pl.count().alias(f'{'_'.join(target_cols)}_count'),
-            ])
-            .fill_null('null') # 空值填"null"
-            .collect()
-            # lazyframe -> dataframe, dataframe is needed for pivot
-            .pivot(
-                values = f'{'_'.join(target_cols)}_count',
-                index = 'cell',
-                on = target_cols
+        if target_cols == ['hex_id']:
+            # focus on the h3 index
+            return (
+                data
+                .group_by('cell')
+                .agg([
+                    pl.count().alias('count'),
+                ])
+                .lazy()
             )
-            .with_columns(
-                pl.sum_horizontal(pl.exclude('cell')).alias('total_count')
+        elif target_cols:
+            return (
+                data
+                .group_by(['cell', *target_cols])
+                .agg([
+                    pl.count().alias(f'{'_'.join(target_cols)}_count'),
+                ])
+                .fill_null('null')
+                .collect()
+                # lazyframe -> dataframe, dataframe is needed for pivot
+                .pivot(
+                    values = f'{'_'.join(target_cols)}_count',
+                    index = 'cell',
+                    on = target_cols
+                )
+                .with_columns(
+                    pl.sum_horizontal(pl.exclude('cell')).alias('total_count')
+                )
+                # dataframe -> lazyframe
+                .lazy()
             )
-            # dataframe -> lazyframe
-            .lazy()
-        )

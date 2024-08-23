@@ -3,7 +3,7 @@ import polars as pl
 import pytest
 
 from h3_toolkit.aggregation import Centroid, Count, SplitEqually
-from h3_toolkit.h3_toolkit import H3Toolkit
+from h3_toolkit.core import H3Toolkit
 
 @pytest.fixture
 def prepared_data():

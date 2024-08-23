@@ -18,10 +18,10 @@ class SingletontMeta(type):
 
 class HBaseClient(metaclass=SingletontMeta):
     def __init__(self,
-                 fetch_url='http://10.100.2.218:2891/api/hbase/v1/test/filterdata2',
-                 send_url='http://10.100.2.218:2891/api/hbase/v1/test/putdata',
-                 max_concurrent_requests=5,
-                 chunk_size=200000
+                 fetch_url:str,
+                 send_url:str,
+                 max_concurrent_requests:int=5,
+                 chunk_size:int=200000
                 ):
         """
         semaphore: 限制最大concurrency數量

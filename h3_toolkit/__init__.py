@@ -1,17 +1,14 @@
 import polars as pl
 from h3ronpy import ContainmentMode as Cont
-from h3ronpy.polars.vector import cells_to_wkb_polygons, wkb_to_cells
 from h3ronpy.polars.raster import raster_to_dataframe
+from h3ronpy.polars.vector import cells_to_wkb_polygons, wkb_to_cells
 from shapely import from_wkb
 
-from .aggregation import Centroid, Count, SplitEqually
 from .hbase import HBaseClient
+from .core import H3Toolkit
 
 __all__ = [
-    'SplitEqually',
-    'Centroid',
-    'Count',
-    'HBaseClient',
+    'H3Toolkit',
 ]
 
 @pl.api.register_expr_namespace('custom')
