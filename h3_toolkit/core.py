@@ -344,6 +344,7 @@ class H3Toolkit:
         table_name:str,
         column_family:str,
         column_qualifier: list[str],
+        rowkeys:list[str] = None
     ) -> H3Toolkit:
         """
         Fetches data from an HBase table based on H3 index row keys.
@@ -387,10 +388,12 @@ class H3Toolkit:
             >>> toolkit.process_from_vector(vector_data)
             >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'])
         """ # noqa: E501
-
         if self.result.is_empty():
-            raise ValueError("Please provide the h3 index first \
-                             before fetching data from HBase.")
+            if rowkeys:
+                self.result = pl.DataFrame({'hex_id': rowkeys})
+            else:
+                raise ValueError("Please provide the h3 index first \
+                                before fetching data from HBase.")
         # TODO: check the HBase client is set 可能要寫set_client
         if self.client:
             self.result = self.client.fetch_data(
