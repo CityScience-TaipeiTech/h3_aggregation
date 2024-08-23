@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath('..'))
 project = 'h3-toolkit'
 copyright = '2024, Ian Huang'
 author = 'Ian Huang'
-release = '0.3.0'
+release = '0.3.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
