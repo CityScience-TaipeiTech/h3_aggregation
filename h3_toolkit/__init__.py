@@ -1,10 +1,21 @@
+"""
+
+
+The H3Toolkit is a wrapper around h3ronpy and polars, designed to simplify the aggregation of H3 data across different resolutions.
+
+Inspired by the user-friendly interface of libraries like pandas and polars, H3Toolkit allows you to chain methods together, making your data processing pipeline more readable and maintainable. By leveraging this approach, you can perform complex operations on H3 data with ease.
+
+With H3Toolkit, you only need to create an instance of the H3Toolkit class and chain the various processing methods to it. Additionally, the toolkit provides support for extending polars functionality by allowing you to create custom aggregation functions.
+
+""" # noqa
+
+
 import polars as pl
 from h3ronpy import ContainmentMode as Cont
 from h3ronpy.polars.raster import raster_to_dataframe
 from h3ronpy.polars.vector import cells_to_wkb_polygons, wkb_to_cells
 from shapely import from_wkb
 
-from .hbase import HBaseClient
 from .core import H3Toolkit
 
 __all__ = [

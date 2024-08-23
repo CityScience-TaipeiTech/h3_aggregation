@@ -17,16 +17,46 @@ class SingletontMeta(type):
         return cls._instances[cls]
 
 class HBaseClient(metaclass=SingletontMeta):
+    """
+    Initializes the HBaseClient instance for fetching and sending data to HBase servers.
+
+    This client supports fetching and sending data to HBase via URLs and controls the
+    maximum number of concurrent requests and the chunk size per request to ensure
+    efficient data processing and transmission.
+    
+    Note:
+        - The `semaphore` attribute is used to limit the concurrency of requests to the HBase server, ensuring the client adheres to the server's request limits.
+        - The `chunk_size` determines the number of row keys processed per request, which helps balance between performance and server load.
+
+    Args:
+        fetch_url (str): The URL used for fetching data from the HBase server.
+        send_url (str): The URL used for sending data to the HBase server.
+        max_concurrent_requests (int, optional): The maximum number of concurrent requests
+            allowed. Defaults to 5.
+        chunk_size (int, optional): The number of row keys processed per request chunk.
+            Defaults to 200,000.
+
+    Attributes:
+        fetch_url (str): The URL for fetching data.
+        send_url (str): The URL for sending data.
+        semaphore (asyncio.Semaphore): Controls the number of concurrent requests
+            that can be processed simultaneously to prevent overwhelming the server.
+        chunk_size (int): The size of data chunks (in row keys) sent per request.
+
+    Example:
+        >>> client = HBaseClient(fetch_url="http://hbase-fetch-url",
+        >>>                      send_url="http://hbase-send-url",
+        >>>                      max_concurrent_requests=5,
+        >>>                      chunk_size=200000)
+        >>> # Fetch and send data using the client
+
+    """ # noqa
     def __init__(self,
                  fetch_url:str,
                  send_url:str,
                  max_concurrent_requests:int=5,
                  chunk_size:int=200000
                 ):
-        """
-        semaphore: 限制最大concurrency數量
-        chunk_size: 每次request的rowkey數量
-        """
         self.fetch_url = fetch_url
         self.send_url = send_url
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
@@ -74,6 +104,11 @@ class HBaseClient(metaclass=SingletontMeta):
                 pl.DataFrame(response[key])
                 for response in responses if response for key in response.keys()
             ]
+
+            # hbase server return empty response
+            if not dfs:
+                raise ValueError("No data fetched from HBase, please check the input parameters")
+
             return pl.concat(dfs, how='vertical')
 
     # async def _fetch_data_chunks(self, session, table_name, cf, cq_list, rowkeys):
@@ -187,10 +222,15 @@ class HBaseClient(metaclass=SingletontMeta):
                 rowkeys:list[str]
         )->pl.DataFrame:
         """
-        table_name: str, the table name in HBase, ex: "res12_pre_data"
-        cf: str, the column family in HBase, ex: "demographic"
-        cq_list: list[str], the column qualifier in HBase, ex: ["p_cnt", "h_cnt"]
-        rowkeys: list[str], the rowkeys to be fetched, ex: ["8c4ba0a415749ff","8c4ba0a415741ff"]
+
+        Args:
+            table_name: str, the table name in HBase, ex: "res12_pre_data"
+            cf: str, the column family in HBase, ex: "demographic"
+            cq_list: list[str], the column qualifier in HBase, ex: ["p_cnt", "h_cnt"]
+            rowkeys: list[str], the rowkeys to be fetched, ex: ["8c4ba0a415749ff","8c4ba0a415741ff"]
+
+        Returns:
+            pl.DataFrame: the fetched data in polars DataFrame
         """
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(
@@ -198,6 +238,7 @@ class HBaseClient(metaclass=SingletontMeta):
                 table_name, column_family, column_qualifier, rowkeys
             )
         )
+
         result = (
             result
             .unnest('properties')
@@ -208,10 +249,6 @@ class HBaseClient(metaclass=SingletontMeta):
             )
         )
 
-        if result.is_empty():
-            # TODO:直接raise exception?
-            logging.warning("No data fetched from HBase")
-
         return result
 
     def send_data(self,
@@ -221,10 +258,11 @@ class HBaseClient(metaclass=SingletontMeta):
                 column_qualifier:list[str],
                 rowkey_col="hex_id",
                 timestamp=None
-        ):
+        ) -> None:
         """
-        rowkey_col: str, the column name of rowkey, default is "hex_id"
-        timestamp: str, if timestamp is None, it will use the current time
+        Args:
+            rowkey_col: str, the column name of rowkey, default is "hex_id"
+            timestamp: str, if timestamp is None, it will use the current time
         """
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self._send_data_main(
