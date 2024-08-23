@@ -1,3 +1,3 @@
 ipykernel
 nbsphinx
-git+https://github.com/readthedocs/sphinx_rtd_theme.git@humitos/plan-3.0#egg=sphinx-rtd-theme
+sphinx_rtd_theme==3.0.0rc1
