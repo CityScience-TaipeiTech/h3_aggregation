@@ -149,7 +149,6 @@ class H3Toolkit:
 
         return self
 
-    # TODO: from raster to h3
     def process_from_raster(
         self,
         data: list[list[int | float]],
@@ -157,8 +156,29 @@ class H3Toolkit:
         resolution:int = 12,
         nodata_value:float | int | None = None,
         return_value_name:str = 'value',
-        compact:bool = False,
     ) -> H3Toolkit:
+        """
+        Processes raster data and converts it into H3 indexes.
+
+        Args:
+            data (list[list[int | float]]): A 2D list representing the raster data, where each element
+                can be an integer or float.
+            transform: Transformation matrix or function to apply to the raster data.
+                It is used for spatial referencing of the raster.
+            resolution (int, optional): The H3 resolution level to use for the conversion.
+                It must be an integer between 0 and 15. Defaults to 12.
+            nodata_value (float | int | None, optional): The value representing "no data" in the raster.
+                If provided, this value will be ignored in processing. Defaults to None.
+            return_value_name (str, optional): The name to use for the value column in the resulting DataFrame.
+                Defaults to 'value'.
+
+        Raises:
+            ResolutionRangeError: If the resolution is not an integer between 0 and 15.
+
+        Returns:
+            H3Toolkit: The updated instance of the H3Toolkit with the processed data.
+
+        """ # noqa: E501
 
         # check resolution is from 0 to 15
         if resolution not in range(0, 16):
@@ -173,7 +193,6 @@ class H3Toolkit:
             transform = transform,
             h3_resolution = resolution,
             nodata_value = nodata_value,
-            compact = compact
         )
 
         self.result = (
@@ -365,6 +384,9 @@ class H3Toolkit:
             column_qualifier (list[str]):
                 A list of column qualifiers to retrieve from the HBase table.
                 For example, ['p_cnt', 'h_cnt'].
+            rowkeys (list[str], optional):
+                A list of H3 indices to fetch data from the HBase table. If not provided,
+                the method will use self.result, which contains the processed H3 data.
 
         Returns:
             H3Toolkit:
@@ -388,14 +410,20 @@ class H3Toolkit:
             >>> toolkit.set_hbase_client(hbase_client)
             >>> toolkit.process_from_vector(vector_data)
             >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'])
+            >>> # or
+            >>> toolkit = H3Toolkit()
+            >>> hex_ids = ['8c4ba1d2914b9ff', '8c4ba1d2914b8ff', '8c4ba1d2914b7ff']
+            >>> toolkit.set_hbase_client(hbase_client)
+            >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids)
         """ # noqa: E501
-        if self.result.is_empty():
+
+        if not self.result:
             if rowkeys:
                 self.result = pl.DataFrame({'hex_id': rowkeys})
             else:
                 raise ValueError("Please provide the h3 index first \
                                 before fetching data from HBase.")
-        # TODO: check the HBase client is set 可能要寫set_client
+
         if self.client:
             self.result = self.client.fetch_data(
                 table_name=table_name,
