@@ -156,6 +156,7 @@ class H3Toolkit:
         transform,
         resolution:int = 12,
         nodata_value:float | int | None = None,
+        return_value_name:str = 'value',
         compact:bool = False,
     ) -> H3Toolkit:
 
@@ -181,7 +182,7 @@ class H3Toolkit:
             .select(
                 pl.col('cell')
                 .h3.cells_to_string().alias('hex_id'),
-                pl.exclude('cell')
+                pl.col('value').alias(return_value_name)
             )
             .collect(streaming=True)
         )

@@ -99,13 +99,19 @@ class HBaseClient(metaclass=SingletontMeta):
 
             responses = await asyncio.gather(*tasks)
 
-            # process
-            dfs = [
-                pl.DataFrame(response[key])
-                for response in responses if response for key in response.keys()
-            ]
+            dfs = []
+            for idx, response in enumerate(responses):
+                start = idx * self.chunk_size
+                end = min(start + self.chunk_size, len(rowkeys))
 
-            # hbase server return empty response
+                if not response:
+                    logging.warning(
+                        f"Some rowkeys in input range {start}-{end} did not return data"
+                    )
+                else:
+                    for key in response.keys():
+                        dfs.append(pl.DataFrame(response[key]))
+
             if not dfs:
                 raise ValueError("No data fetched from HBase, please check the input parameters")
 
