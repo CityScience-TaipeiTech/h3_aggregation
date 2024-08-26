@@ -26,7 +26,7 @@ class H3Toolkit:
         self.source_resolution:int = None
         self.target_resolution:int = None
         self.raw_data = None
-        self.result:pl.DataFrame = None
+        self.result:pl.DataFrame = pl.DataFrame()
 
     def set_aggregation_strategy(
         self,
@@ -58,13 +58,16 @@ class H3Toolkit:
             pl.DataFrame: _description_
         """
 
+        return_df = df.select(pl.col('cell'))
         # it's possible that the aggregation_strategies is empty
         if self.aggregation_strategies:
             for col, strategy in self.aggregation_strategies.items():
                 cols = [col] if isinstance(col, str) else col
-                # TODO: 可能會有問題，寫測試的時候注意一下
-                df = strategy.apply(df, target_cols=cols)
-        return df
+                # let eveny df is a raw df as the input
+                applied_df = strategy.apply(df, target_cols=cols)
+                return_df = return_df.join(applied_df, on='cell', how='left')
+
+        return return_df
 
     def process_from_vector(
         self,
@@ -130,8 +133,8 @@ class H3Toolkit:
                 # Convert the cell(unit64) to string
                 pl.col('cell').h3.cells_to_string().alias('hex_id'),
                 # only select the columns set in the aggregation strategies
-                # TODO: 可能有問題，寫測試的時候注意一下
-                pl.col(selected_cols)
+                # pl.col(selected_cols)
+                pl.all().exclude(['cell', geometry_col])
             )
             .collect(streaming=True)
         )
@@ -193,6 +196,8 @@ class H3Toolkit:
             transform = transform,
             h3_resolution = resolution,
             nodata_value = nodata_value,
+            compact = False,
+            geo = False,
         )
 
         self.result = (
@@ -277,7 +282,7 @@ class H3Toolkit:
             raise ResolutionRangeError("""
                 The resolution must be an integer from 0 to 15, please refer to the H3 documentation
             """)
-        elif source_resolution <= target_resolution:
+        elif source_resolution < target_resolution:
             raise ResolutionRangeError("""
                 The target resolution must be lower than the source resolution
                 ie: source_resolution: 12, target_resolution: 7
@@ -417,7 +422,7 @@ class H3Toolkit:
             >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids)
         """ # noqa: E501
 
-        if not self.result:
+        if self.result.is_empty():
             if rowkeys:
                 self.result = pl.DataFrame({'hex_id': rowkeys})
             else:
