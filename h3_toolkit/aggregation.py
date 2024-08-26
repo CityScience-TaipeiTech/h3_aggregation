@@ -99,7 +99,7 @@ class Count(AggregationStrategy):
                 data
                 .group_by('cell')
                 .agg([
-                    pl.count().alias('total_count'),
+                    pl.count().alias('total_count').cast(pl.Int64),
                 ])
                 .lazy()
             )
@@ -108,7 +108,7 @@ class Count(AggregationStrategy):
                 data
                 .group_by(['cell', *target_cols])
                 .agg([
-                    pl.count().alias(f'{'_'.join(target_cols)}_count'),
+                    pl.count().alias(f'{'_'.join(target_cols)}_count').cast(pl.Int64),
                 ])
                 .fill_null('null')
             )
@@ -123,7 +123,7 @@ class Count(AggregationStrategy):
                     on = target_cols
                 )
                 .with_columns(
-                    pl.sum_horizontal(pl.exclude('cell')).alias('total_count')
+                    pl.sum_horizontal(pl.exclude('cell')).alias('total_count').cast(pl.Int64)
                 )
             )
 
