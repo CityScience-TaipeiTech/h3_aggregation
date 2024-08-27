@@ -197,7 +197,7 @@ class H3Toolkit:
             h3_resolution = resolution,
             nodata_value = nodata_value,
             compact = False,
-            geo = False,
+            # geo = False,
         )
 
         self.result = (
