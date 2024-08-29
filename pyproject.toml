@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "h3-toolkit"
-version = "0.3.5"
+version = "0.3.6"
 description = ""
 authors = ["Huang SyuanBo <godspeed88168@gmail.com>"]
 readme = "README.md"
