@@ -15,6 +15,9 @@ class AggregationStrategy(ABC):
         raise NotImplementedError("Subclasses must implement this method")
 
 class SplitEqually(AggregationStrategy):
+    """
+    .. image:: ../../images/SplitEqually.svg
+    """
     def __init__(self, agg_col:str):
         """
         Args:
@@ -45,6 +48,9 @@ class SplitEqually(AggregationStrategy):
         )
 
 class Centroid(AggregationStrategy):
+    """
+    .. image:: ../../images/Centroid.svg
+    """
     def apply(self, data:pl.LazyFrame, target_cols:list[str]) -> pl.LazyFrame:
         return (
             data
@@ -59,6 +65,9 @@ class Centroid(AggregationStrategy):
         )
 
 class SumUp(AggregationStrategy):
+    """
+    .. image:: ../../images/SumUp.svg
+    """
     def apply(self, df: pl.DataFrame, target_cols: list[str]) -> pl.DataFrame:
         """
         Scale Up Function
@@ -77,6 +86,9 @@ class SumUp(AggregationStrategy):
         )
 
 class Mean(AggregationStrategy):
+    """
+    .. image:: ../../images/Mean.svg
+    """
     def apply(self, data: pl.LazyFrame, target_cols: list[str]) -> pl.LazyFrame:
         return (
             data
@@ -89,6 +101,9 @@ class Mean(AggregationStrategy):
         )
 
 class Count(AggregationStrategy):
+    """
+    .. image:: ../../images/Count.svg
+    """
     def __init__(self, return_percentage: bool = False):
         self.return_percentage = return_percentage
 

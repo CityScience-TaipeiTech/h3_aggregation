@@ -25,6 +25,7 @@ extensions = [
     'sphinx.ext.autosummary',  # autosummary for generating summary
     'sphinx.ext.viewcode',  # viewcode for linking source code
     'sphinx.ext.intersphinx',  # intersphinx for linking to other projects
+    'sphinx.ext.graphviz',  # graphviz for including graphviz/dot files
     'nbsphinx',  # nbsphinx for jupyter notebook
     'IPython.sphinxext.ipython_console_highlighting',  # ipython console highlighting
 ]

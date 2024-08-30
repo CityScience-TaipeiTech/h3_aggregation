@@ -295,8 +295,6 @@ class H3Toolkit:
         if h3_col not in self.result.columns:
             raise ColumnNotFoundError(f"Column '{h3_col}' not found in the input DataFrame")
 
-        # TODO: target resolution 不能大於 source resolution？
-
         # check the column names set in the aggregation strategies are part of the input data
         if self.aggregation_strategies:
             for cols in self.aggregation_strategies.keys():

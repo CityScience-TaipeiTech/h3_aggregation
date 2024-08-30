@@ -4,3 +4,5 @@
 ----------------
 
 python tool for easily aggregating h3 data.
+
+Documentation is available at [https://h3-toolkit.readthedocs.io/en/latest/](https://h3-toolkit.readthedocs.io/en/latest/).
