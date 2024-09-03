@@ -513,6 +513,14 @@ class H3Toolkit:
 
         return self
 
+    def apply(self, func) -> H3Toolkit:
+        """
+        對result進行近一步的操作，讓send_to_hbase更方便
+        """
+
+        self.result = self.result.pipe(func)
+
+        return self
 
 
     def get_result(self, return_geometry:bool=False) -> pl.DataFrame | gpd.GeoDataFrame:
