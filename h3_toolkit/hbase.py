@@ -31,6 +31,7 @@ class HBaseClient(metaclass=SingletontMeta):
     Args:
         fetch_url (str): The URL used for fetching data from the HBase server.
         send_url (str): The URL used for sending data to the HBase server.
+        token (str): Get the user token from http://10.100.2.218:2891/swagger/index.html# by registering an account.
         max_concurrent_requests (int, optional): The maximum number of concurrent requests
             allowed. Defaults to 5.
         chunk_size (int, optional): The number of row keys processed per request chunk.
@@ -39,6 +40,7 @@ class HBaseClient(metaclass=SingletontMeta):
     Attributes:
         fetch_url (str): The URL for fetching data.
         send_url (str): The URL for sending data.
+        token (str): The token used for authentication, get from http://10.100.2.218:2891/swagger/index.html#/user/post_user_login.
         semaphore (asyncio.Semaphore): Controls the number of concurrent requests
             that can be processed simultaneously to prevent overwhelming the server.
         chunk_size (int): The size of data chunks (in row keys) sent per request.
@@ -46,6 +48,7 @@ class HBaseClient(metaclass=SingletontMeta):
     Example:
         >>> client = HBaseClient(fetch_url="http://hbase-fetch-url",
         >>>                      send_url="http://hbase-send-url",
+        >>>                      token="aaaa.bbbbb.ccccc",
         >>>                      max_concurrent_requests=5,
         >>>                      chunk_size=200000)
         >>> # Fetch and send data using the client
@@ -54,19 +57,26 @@ class HBaseClient(metaclass=SingletontMeta):
     def __init__(self,
                  fetch_url:str,
                  send_url:str,
+                 token:str,
                  max_concurrent_requests:int=5,
                  chunk_size:int=200000
                 ):
         self.fetch_url = fetch_url
         self.send_url = send_url
+        self.token = token
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
         self.chunk_size = chunk_size
 
     async def _fetch_data(self, session, form_data):
         async with self.semaphore:
             try:
-                async with session.post(self.fetch_url, data=form_data) as response:
-                    response.raise_for_status() # 有任何不是200的response都會raise exception
+                async with session.post(
+                    self.fetch_url,
+                    data=form_data,
+                    headers = {"Authorization": f"Bearer {self.token}"},
+                    raise_for_status = True # 有任何不是200的response都會raise exception
+                ) as response:
+                    # response.raise_for_status()
                     response_text = await response.json()
                     logging.info("Successfully fetch data")
                     return response_text
@@ -148,17 +158,25 @@ class HBaseClient(metaclass=SingletontMeta):
     async def _send_data(self, session, result):
         async with self.semaphore:
             try:
-                async with session.post(self.send_url, json=result) as response:
-                    response.raise_for_status() # 有任何不是200的response都會raise exception
+                async with session.post(
+                    self.send_url,
+                    json=result,
+                    headers = {"Authorization": f"Bearer {self.token}"},
+                    raise_for_status = True  # 有任何不是200的response都會raise exception
+                ) as response:
+                    # response.raise_for_status()
                     response_text = await response.text()
                     logging.info(f"Successfully sent data: {response_text}")
                     return True
             except aiohttp.ClientResponseError as e:
                 logging.error(f"Failed to send data: {e.status} {e.message}")
-                return None
+                return False
+            except aiohttp.ClientError as e:
+                logging.error(f"Client Error: {str(e)}")
+                return False
             except Exception as e:
                 logging.error(f"Exception occurred: {str(e)}")
-                return None
+                return False
 
     async def _send_data_with_retry(self, session, result, retries=3):
         for attempt in range(retries):
