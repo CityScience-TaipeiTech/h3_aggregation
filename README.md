@@ -1,7 +1,8 @@
-## Add some aggregation function based on H3
-- [ ] upscaling function 
-- [ ] downscaling function 
-- [ ] ...
+[![pypi](https://img.shields.io/pypi/v/h3_toolkit.svg)](https://pypi.python.org/pypi/h3_toolkit/)
 
-## ML function
-[H3 機器學習](https://github.com/uber/h3-py-notebooks/blob/master/notebooks/urban_analytics.ipynb)
+# h3_toolkit
+----------------
+
+python tool for easily aggregating h3 data.
+
+Documentation is available at [https://h3-toolkit.readthedocs.io/en/latest/](https://h3-toolkit.readthedocs.io/en/latest/).

@@ -15,7 +15,7 @@ __pycache__/
 *$py.class
 
 # Sphinx documentation
-docs/_build/
+docs/build/
 
 # Distribution / packaging
 dist/
@@ -32,3 +32,6 @@ constant.py
 data_for_display.py
 /testing_file
 .DS_Store
+
+/.ruff_cache
+/.pytest_cache
