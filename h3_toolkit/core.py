@@ -123,7 +123,7 @@ class H3Toolkit:
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
 
         self.result = (
             self.raw_data
@@ -146,7 +146,7 @@ class H3Toolkit:
         # resolution選太大就會有null！
         if self.result.select(pl.col('hex_id').is_null().any()).item():
             self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`") # noqa: E501
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Successfully converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
 
         return self
 
@@ -189,6 +189,7 @@ class H3Toolkit:
         else:
             self.source_resolution = resolution
 
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
         self.raw_data = raster_to_dataframe(
             in_raster = data,
             transform = transform,
@@ -197,6 +198,7 @@ class H3Toolkit:
             compact = False,
             # geo = False,
         )
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
 
         self.result = (
             self.raw_data
@@ -304,7 +306,7 @@ class H3Toolkit:
                         The column '{', '.join(missing_cols)}' not found in the input data,
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
-
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Start converting data to h3 cells in resolution {self.target_resolution}") # noqa: E501
         self.result = (
             self.result
             .lazy()
@@ -331,6 +333,7 @@ class H3Toolkit:
             .unique(subset=[h3_col])
             .collect(streaming=True)
         )
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Finish converting data to h3 cells in resolution {self.target_resolution} with shape {self.result.shape}") # noqa: E501
 
         return self
 

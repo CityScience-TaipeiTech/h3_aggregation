@@ -6,6 +6,7 @@ from datetime import datetime
 
 import aiohttp
 import polars as pl
+from tqdm.asyncio import tqdm
 
 from .utils import setup_default_logger
 
@@ -95,9 +96,8 @@ class HBaseClient(metaclass=SingletontMeta):
                     headers = {"Authorization": f"Bearer {self.token}"},
                     raise_for_status = True # 有任何不是200的response都會raise exception
                 ) as response:
-                    # response.raise_for_status()
                     response_text = await response.json()
-                    self.logger.info("Successfully fetch data")
+                    # self.logger.info("Successfully fetch data")
                     return response_text
             except aiohttp.ClientResponseError as e:
                 self.logger.error(f"Failed to fetch data: {e.status} {e.message}")
@@ -116,15 +116,18 @@ class HBaseClient(metaclass=SingletontMeta):
         return None
 
     async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys):
+        total_chunks = len(rowkeys) // self.chunk_size + 1
         async with aiohttp.ClientSession() as session:
             tasks = []
-            for start in range(0, len(rowkeys), self.chunk_size):
-                form_data = {
-                    "tablename": table_name,
-                    "rowkey": json.dumps(rowkeys[start:start + self.chunk_size]),
-                    "column_qualifiers": json.dumps({cf: cq_list})
-                }
-                tasks.append(self._fetch_data_with_retry(session, form_data))
+            with tqdm(total=total_chunks, desc="Fetching data from Hbase ... ", unit='chunk') as pbar: # noqa
+                for start in range(0, len(rowkeys), self.chunk_size):
+                    form_data = {
+                        "tablename": table_name,
+                        "rowkey": json.dumps(rowkeys[start:start + self.chunk_size]),
+                        "column_qualifiers": json.dumps({cf: cq_list})
+                    }
+                    tasks.append(self._fetch_data_with_retry(session, form_data))
+                    pbar.update(1)
 
             responses = await asyncio.gather(*tasks)
 
@@ -183,9 +186,8 @@ class HBaseClient(metaclass=SingletontMeta):
                     headers = {"Authorization": f"Bearer {self.token}"},
                     raise_for_status = True  # 有任何不是200的response都會raise exception
                 ) as response:
-                    # response.raise_for_status()
-                    response_text = await response.text()
-                    self.logger.info(f"Successfully sent data: {response_text}")
+                    _ = await response.text()
+                    # self.logger.info(f"Successfully sent data: {response_text}")
                     return True
             except aiohttp.ClientResponseError as e:
                 self.logger.error(f"Failed to send data: {e.status} {e.message}")
@@ -207,23 +209,26 @@ class HBaseClient(metaclass=SingletontMeta):
         return "Failed"
 
     async def _send_data_main(self, data, table_name, cf, cq_list, rowkey_col, timestamp):
+        total_chunks = data.shape[0] // self.chunk_size + 1
         async with aiohttp.ClientSession() as session:
             tasks = []
-            for start in range(0, len(data), self.chunk_size):
-                chunk = data.slice(start, self.chunk_size)
-                result = {
-                    "cells": [
-                        {
-                            "rowkey": row[rowkey_col],
-                            "datas": {
-                                cf: { cq: str(row[cq]) for cq in cq_list if row[cq] is not None},
-                            }
-                        } for row in chunk.iter_rows(named=True)
-                    ],
-                    "tablename": f"{table_name}",
-                    "timestamp": timestamp if timestamp else ""
-                }
-                tasks.append(self._send_data_with_retry(session, result))
+            with tqdm(total=total_chunks, desc="Sending data to Hbase ... ", unit='chunk') as pbar:
+                for start in range(0, len(data), self.chunk_size):
+                    chunk = data.slice(start, self.chunk_size)
+                    result = {
+                        "cells": [
+                            {
+                                "rowkey": row[rowkey_col],
+                                "datas": {
+                                    cf: { cq: str(row[cq]) for cq in cq_list if row[cq] is not None}, # noqa
+                                }
+                            } for row in chunk.iter_rows(named=True)
+                        ],
+                        "tablename": f"{table_name}",
+                        "timestamp": timestamp if timestamp else ""
+                    }
+                    tasks.append(self._send_data_with_retry(session, result))
+                    pbar.update(1)
 
             _ = await asyncio.gather(*tasks)
             # for response in responses:
@@ -257,6 +262,7 @@ class HBaseClient(metaclass=SingletontMeta):
     #         del tasks
     #         gc.collect()
 
+    # NOTICE: NOT TEST YET
     async def afetch_data(self,
                 table_name:str,
                 column_family:str,
@@ -306,7 +312,7 @@ class HBaseClient(metaclass=SingletontMeta):
         #     )
         # )
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start fetching data from HBase") # noqa: E501
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase") # noqa: E501
         result = asyncio.run(
             self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys)
         )
@@ -320,7 +326,7 @@ class HBaseClient(metaclass=SingletontMeta):
                 pl.exclude("row")
             )
         )
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Finish fetching data from HBase") # noqa: E501
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Finish fetching data from HBase") # noqa: E501
 
         return result
 
@@ -337,10 +343,16 @@ class HBaseClient(metaclass=SingletontMeta):
             rowkey_col: str, the column name of rowkey, default is "hex_id"
             timestamp: str, if timestamp is None, it will use the current time
         """
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self._send_data_main(
-            data, table_name, column_family, column_qualifier, rowkey_col, timestamp
-        ))
+        # loop = asyncio.get_event_loop()
+        # loop.run_until_complete(self._send_data_main(
+        #     data, table_name, column_family, column_qualifier, rowkey_col, timestamp
+        # ))
+
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Start sending data from HBase") # noqa: E501
+        asyncio.run(
+            self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp) # noqa: E501
+        )
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Finish sending data from HBase") # noqa: E501
         del data
         gc.collect()
 
