@@ -222,7 +222,7 @@ class HBaseClient(metaclass=SingletontMeta):
                                 "datas": {
                                     cf: { cq: str(row[cq]) for cq in cq_list if row[cq] is not None}, # noqa
                                 }
-                            } for row in chunk.iter_rows(named=True)
+                            } for row in chunk.iter_rows(named=True) if row[rowkey_col] is not None
                         ],
                         "tablename": f"{table_name}",
                         "timestamp": timestamp if timestamp else ""
