@@ -2,9 +2,12 @@ import asyncio
 import gc
 import json
 import logging
+from datetime import datetime
 
 import aiohttp
 import polars as pl
+
+from .utils import setup_default_logger
 
 
 class SingletontMeta(type):
@@ -59,13 +62,29 @@ class HBaseClient(metaclass=SingletontMeta):
                  send_url:str,
                  token:str,
                  max_concurrent_requests:int=5,
-                 chunk_size:int=200000
+                 chunk_size:int=200000,
                 ):
         self.fetch_url = fetch_url
         self.send_url = send_url
         self.token = token
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
         self.chunk_size = chunk_size
+
+        self.logger = setup_default_logger(__name__, logging.WARNING)
+
+    def __repr__(self):
+        """
+        User-friendly representation of the HBaseClient instance when printed.
+        """
+        return f"HBaseClient(\n fetch_url = {self.fetch_url}, \n send_url = {self.send_url}, \n token = {self._obfuscate_token(self.token)}, \
+            \n max_concurrent_requests = {self.semaphore._value}, \n chunk_size = {self.chunk_size}\n)" #noqa
+
+    def _obfuscate_token(self, token):
+        """
+        Let password only show the first 5 and last 5 characters.
+        """
+        return f"{token[:5]}{'*' * (len(token)-10)}{token[-5:]}"
+
 
     async def _fetch_data(self, session, form_data):
         async with self.semaphore:
@@ -78,13 +97,13 @@ class HBaseClient(metaclass=SingletontMeta):
                 ) as response:
                     # response.raise_for_status()
                     response_text = await response.json()
-                    logging.info("Successfully fetch data")
+                    self.logger.info("Successfully fetch data")
                     return response_text
             except aiohttp.ClientResponseError as e:
-                logging.error(f"Failed to fetch data: {e.status} {e.message}")
+                self.logger.error(f"Failed to fetch data: {e.status} {e.message}")
                 return None
             except Exception as e:
-                logging.error(f"Exception occurred: {str(e)}")
+                self.logger.error(f"Exception occurred: {str(e)}")
                 return None
 
     async def _fetch_data_with_retry(self, session, form_data, retries=3):
@@ -92,7 +111,7 @@ class HBaseClient(metaclass=SingletontMeta):
             result = await self._fetch_data(session, form_data)
             if result is not None:
                 return result
-            logging.warning(f"Retry {attempt + 1}/{retries} failed for fetching data")
+            self.logger.warning(f"Retry {attempt + 1}/{retries} failed for fetching data")
             await asyncio.sleep(1)
         return None
 
@@ -115,7 +134,7 @@ class HBaseClient(metaclass=SingletontMeta):
                 end = min(start + self.chunk_size, len(rowkeys))
 
                 if not response:
-                    logging.warning(
+                    self.logger.warning(
                         f"Some rowkeys in input range {start}-{end} did not return data"
                     )
                 else:
@@ -166,16 +185,16 @@ class HBaseClient(metaclass=SingletontMeta):
                 ) as response:
                     # response.raise_for_status()
                     response_text = await response.text()
-                    logging.info(f"Successfully sent data: {response_text}")
+                    self.logger.info(f"Successfully sent data: {response_text}")
                     return True
             except aiohttp.ClientResponseError as e:
-                logging.error(f"Failed to send data: {e.status} {e.message}")
+                self.logger.error(f"Failed to send data: {e.status} {e.message}")
                 return False
             except aiohttp.ClientError as e:
-                logging.error(f"Client Error: {str(e)}")
+                self.logger.error(f"Client Error: {str(e)}")
                 return False
             except Exception as e:
-                logging.error(f"Exception occurred: {str(e)}")
+                self.logger.error(f"Exception occurred: {str(e)}")
                 return False
 
     async def _send_data_with_retry(self, session, result, retries=3):
@@ -183,7 +202,7 @@ class HBaseClient(metaclass=SingletontMeta):
             success = await self._send_data(session, result)
             if success:
                 return "Success"
-            logging.warning(f"Retry {attempt + 1}/{retries} failed for data chunk")
+            self.logger.warning(f"Retry {attempt + 1}/{retries} failed for data chunk")
             await asyncio.sleep(1)  # 等待一段時間後重試
         return "Failed"
 
@@ -238,6 +257,27 @@ class HBaseClient(metaclass=SingletontMeta):
     #         del tasks
     #         gc.collect()
 
+    async def afetch_data(self,
+                table_name:str,
+                column_family:str,
+                column_qualifier:list[str],
+                rowkeys:list[str]):
+        """This coroutine is used by afetch_from_hbase
+        """
+        result = await self._fetch_data_main(
+                table_name, column_family, column_qualifier, rowkeys
+            )
+        result = (
+            result
+            .unnest('properties')
+            .pivot(index="row", values="value", on="qualifier")
+            .select(
+                pl.col("row").alias("hex_id"),
+                pl.exclude("row")
+            )
+        )
+
+        return result
 
     def fetch_data(self,
                 table_name:str,
@@ -245,7 +285,9 @@ class HBaseClient(metaclass=SingletontMeta):
                 column_qualifier:list[str],
                 rowkeys:list[str]
         )->pl.DataFrame:
-        """
+        """Starting a new event loop to fetch data from HBase in async mode. \
+        NOTICE: This function can't fit with fastapi, because it will start a new event loop. \
+        If you want to use this function in fastapi, you should use the async function `afetch_data`
 
         Args:
             table_name: str, the table name in HBase, ex: "res12_pre_data"
@@ -256,11 +298,17 @@ class HBaseClient(metaclass=SingletontMeta):
         Returns:
             pl.DataFrame: the fetched data in polars DataFrame
         """
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(
-            self._fetch_data_main(
-                table_name, column_family, column_qualifier, rowkeys
-            )
+        # The way using `get_event_loop`
+        # loop = asyncio.get_event_loop()
+        # result = loop.run_until_complete(
+        #     self._fetch_data_main(
+        #         table_name, column_family, column_qualifier, rowkeys
+        #     )
+        # )
+
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start fetching data from HBase") # noqa: E501
+        result = asyncio.run(
+            self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys)
         )
 
         result = (
@@ -272,6 +320,7 @@ class HBaseClient(metaclass=SingletontMeta):
                 pl.exclude("row")
             )
         )
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Finish fetching data from HBase") # noqa: E501
 
         return result
 

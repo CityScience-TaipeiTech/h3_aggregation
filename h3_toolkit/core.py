@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import geopandas as gpd
 import h3ronpy.polars  # noqa: F401
@@ -15,18 +16,19 @@ from .exceptions import (
     ResolutionRangeError,
 )
 from .hbase import HBaseClient
-from .utils import cell_to_geom, geom_to_wkb, wkb_to_cells
+from .utils import cell_to_geom, geom_to_wkb, setup_default_logger, wkb_to_cells
 
 
 class H3Toolkit:
     def __init__(self):
         self.client:HBaseClient = None
         self.aggregation_strategies = {}
-        # self.logger = logging.getLogger(__name__)  # 這是什麼意思?
         self.source_resolution:int = None
         self.target_resolution:int = None
         self.raw_data = None
         self.result:pl.DataFrame = pl.DataFrame()
+
+        self.logger = setup_default_logger(__name__, level=logging.WARNING)
 
     def set_aggregation_strategy(
         self,
@@ -49,7 +51,7 @@ class H3Toolkit:
         return self
 
     def _apply_strategy(self, df:pl.DataFrame)->pl.DataFrame:
-        """_summary_
+        """
 
         Args:
             df (pl.DataFrame): use polar pipe function to apply the aggregation strategy
@@ -121,7 +123,7 @@ class H3Toolkit:
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
 
-        logging.info(f"Start converting data to h3 cells in resolution {self.source_resolution}")
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
 
         self.result = (
             self.raw_data
@@ -143,12 +145,8 @@ class H3Toolkit:
 
         # resolution選太大就會有null！
         if self.result.select(pl.col('hex_id').is_null().any()).item():
-            logging.warning("potential hex_id loss: \
-                            please select the higher resolution and with `process_from_h3()`")
-
-        logging.info(self.result.head(5))
-        logging.info(f"Successfully converting data to h3 cells in resolution \
-                     {self.source_resolution}")
+            self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`") # noqa: E501
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Successfully converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
 
         return self
 
@@ -362,6 +360,20 @@ class H3Toolkit:
         self.client = client
         return self
 
+    @property
+    def hbase_client(self):
+        """
+        Gets the current HBase client. Use for checking if the HBase client is set.
+
+        Returns:
+            The HBase client object if set; otherwise, returns None.
+        """
+        if self.client:
+            return self.client
+        else:
+            return self.logger.warning(
+                "No HBase client set. Please use `set_hbase_client()` to set the HBase client.")
+
     def fetch_from_hbase(
         self,
         table_name:str,
@@ -371,6 +383,7 @@ class H3Toolkit:
     ) -> H3Toolkit:
         """
         Fetches data from an HBase table based on H3 index row keys.
+        Starting from the sycnchronous function, will craete a new event loop to run the async function.
 
         Note:
             This method retrieves data from an HBase table using the H3 indices generated from methods
@@ -440,6 +453,33 @@ class H3Toolkit:
 
         return self
 
+    # # TODO: async version, for calling from fastapi
+    # async def afetch_from_hbase(
+    #     self,
+    #     table_name:str,
+    #     column_family:str,
+    #     column_qualifier: list[str],
+    #     rowkeys:list[str] = None
+    # ):
+    #     if self.result.is_empty():
+    #         if rowkeys:
+    #             self.result = pl.DataFrame({'hex_id': rowkeys})
+    #         else:
+    #             raise ValueError("Please provide the h3 index first \
+    #                             before fetching data from HBase.")
+
+    #     if self.client:
+    #         self.result = await self.client.afetch_data(
+    #             table_name=table_name,
+    #             column_family=column_family,
+    #             column_qualifier=column_qualifier,
+    #             rowkeys=self.result['hex_id'].to_list(),
+    #         )
+    #     else:
+    #         raise HBaseConnectionError("The HBase client didn't set, use `set_hbase_client()` \
+    #                                     to set the HBase client before fetching data from hbase.")
+
+    #     return self
 
     def send_to_hbase(
         self,
@@ -515,9 +555,10 @@ class H3Toolkit:
 
     def apply(self, func) -> H3Toolkit:
         """
-        對result進行近一步的操作，讓send_to_hbase更方便
+        Apply a function to the result of the data processing. \
+        The function is applied using the Polars DataFrame `pipe` method. \
+        so the input and output of the function should be a Polars DataFrame.
         """
-
         self.result = self.result.pipe(func)
 
         return self

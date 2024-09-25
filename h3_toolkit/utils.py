@@ -2,6 +2,7 @@ import geopandas as gpd
 import polars as pl
 from h3ronpy import ContainmentMode as Cont
 from shapely import to_wkb
+import logging
 
 
 def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
@@ -75,7 +76,7 @@ def cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
         gpd.GeoDataFrame(
             df
             .select(
-                pl.exclude('hex_id'),
+                pl.all(), # keep all columns including hex_id
                 pl.col('hex_id')
                 .h3.cells_parse()
                 .custom.custom_cells_to_wkb_polygons()
@@ -86,3 +87,21 @@ def cell_to_geom(df:pl.DataFrame)->gpd.GeoDataFrame:
             , crs='epsg:4326'
         )
     )
+
+def setup_default_logger(logger_name: str, level=logging.WARNING):
+    """
+    Sets up a default logger with the given name and log level.
+
+    Args:
+        logger_name (str): The name of the logger.
+        level (int): The logging level (e.g., logging.INFO, logging.WARNING).
+    """
+    logger = logging.getLogger(logger_name)
+    if not logger.hasHandlers():  # Prevent multiple handlers
+        handler = logging.StreamHandler()  # Outputs to console
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                                      datefmt='%Y-%m-%d %H:%M:%S')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+    return logger
