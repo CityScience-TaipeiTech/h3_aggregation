@@ -10,7 +10,7 @@ python = "^3.12"
 polars = "^1.2.0"
 geopandas = "^1.0.1"
 h3ronpy = "^0.21.0"
-aiohttp = "^3.9.5"
+aiohttp = "3.10.2"
 tqdm = "^4.66.5"
 
 [tool.poetry.group.dev.dependencies]

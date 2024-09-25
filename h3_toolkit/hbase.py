@@ -117,7 +117,7 @@ class HBaseClient(metaclass=SingletontMeta):
 
     async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys):
         total_chunks = len(rowkeys) // self.chunk_size + 1
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
             with tqdm(total=total_chunks, desc="Fetching data from Hbase ... ", unit='chunk') as pbar: # noqa
                 for start in range(0, len(rowkeys), self.chunk_size):
@@ -210,7 +210,7 @@ class HBaseClient(metaclass=SingletontMeta):
 
     async def _send_data_main(self, data, table_name, cf, cq_list, rowkey_col, timestamp):
         total_chunks = data.shape[0] // self.chunk_size + 1
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
             with tqdm(total=total_chunks, desc="Sending data to Hbase ... ", unit='chunk') as pbar:
                 for start in range(0, len(data), self.chunk_size):
