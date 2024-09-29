@@ -123,7 +123,7 @@ class Count(AggregationStrategy):
                 data
                 .group_by(['cell', *target_cols])
                 .agg([
-                    pl.count().alias(f'{'_'.join(target_cols)}_count').cast(pl.Int64),
+                    pl.count().alias(f'{"_".join(target_cols)}_count').cast(pl.Int64),
                 ])
                 .fill_null('null')
             )
@@ -133,7 +133,7 @@ class Count(AggregationStrategy):
                 .collect()
                 # lazyframe -> dataframe, dataframe is needed for pivot
                 .pivot(
-                    values = f'{'_'.join(target_cols)}_count',
+                    values = f'{"_".join(target_cols)}_count',
                     index = 'cell',
                     on = target_cols
                 )
