@@ -6,7 +6,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../../h3_toolkit'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'h3-toolkit'
 copyright = '2024, Ian Huang'
 author = 'Ian Huang'
-release = '0.3.1'
+release = '0.3.11'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
