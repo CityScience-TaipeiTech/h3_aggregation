@@ -1,10 +1,18 @@
 h3\_toolkit package
 ===================
 
-Module contents
----------------
+.. Module contents
+.. ---------------
 
-.. automodule:: h3_toolkit
+.. .. automodule:: h3_toolkit.core
+..    :members:
+..    :undoc-members:
+..    :show-inheritance:
+
+h3\_toolkit.core module
+-----------------------
+
+.. automodule:: h3_toolkit.core
    :members:
    :undoc-members:
    :show-inheritance:
@@ -41,10 +49,3 @@ h3\_toolkit.exceptions module
    :undoc-members:
    :show-inheritance:
 
-.. h3\_toolkit.core module
-.. -----------------------
-
-.. .. automodule:: h3_toolkit.core
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
