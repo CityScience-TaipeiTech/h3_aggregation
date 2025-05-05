@@ -5,10 +5,12 @@
 - [ ] 支援本地暫存到 duckDB
 - [ ] 支援直接輸出 vector tail/ MVT?
 - [ ] 支援直接輸出 deck.gl 的格式
+- [ ] 支援 H3 轉 local_ij 功能
 
 ## 已知 支援h3 的python 套件清單
   - [h3](https://github.com/uber/h3)
   - [h3ronpy](https://github.com/nmandery/h3ronpy)
+
 ### Routing相關
  - [r5py](https://github.com/r5py/r5py) (單一hex向外之等時圈
  - OTP (若須回傳 hex to hex 經過路徑才須整入
