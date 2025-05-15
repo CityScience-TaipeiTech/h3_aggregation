@@ -30,6 +30,9 @@
 ## 基於 H3 index 的 ML 實踐
 [H3 機器學習](https://github.com/uber/h3-py-notebooks/blob/master/notebooks/urban_analytics.ipynb)
 
+## H3 Grid - Spatio-Temporal KnowledgeGraph 
+ - [STGK based on H3 rgid](https://github.com/MartinBoeckling/stkg_construction)
+   
 ## 其他部份
  - [neatnet - street geometry processing toolkit](https://uscuni.org/neatnet/)
  - [跟路網有關](https://stackoverflow.com/questions/69174361/how-to-extract-street-graph-or-network-from-openstreetmap)
