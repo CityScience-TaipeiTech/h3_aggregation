@@ -1,8 +1,10 @@
 ## Add some aggregation function based on H3
 ## TODO
-- [ ] 修改對 Hbase 的連線以及操作方式
-- [ ] 所有計算改使用 spark 為主?
-- [ ] 支援本地暫存到 duckDB
+- [ ] 移除/修改對 Hbase 的連線以及操作方式
+- [ ] 支援 PySpark ?
+- [ ] 支援本地暫存到 duckDB ?
+- [ ] 支援 Geo-Pandas
+- [ ] 支援 cuDF
 - [ ] 支援直接輸出 vector tail/ MVT?
 - [ ] 支援直接輸出 deck.gl 的格式
 - [ ] 支援 H3 轉 local_ij 功能
