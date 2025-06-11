@@ -9,7 +9,7 @@
 - [ ] 支援直接輸出 deck.gl 的格式
 - [ ] 支援 H3 轉 local_ij 功能
 - [ ] 建立 test benchmark
-  - [ ] [source 1](https://blog.csdn.net/qq_31988139/article/details/121455423) 
+  - [ ] [source 1](https://blog.csdn.net/qq_31988139/article/details/121455423)
 ## 已知 支援h3 的python 套件清單
   - [h3](https://github.com/uber/h3)
   - [h3ronpy](https://github.com/nmandery/h3ronpy)
@@ -40,3 +40,4 @@
  - [neatnet - street geometry processing toolkit](https://uscuni.org/neatnet/)
  - [跟路網有關](https://stackoverflow.com/questions/69174361/how-to-extract-street-graph-or-network-from-openstreetmap)
  - [some lessions](https://gdsl-ul.github.io/wma/labs/w07_OSM.html)
+ - [更多與 Hexagon 的運算](https://www.redblobgames.com/grids/hexagons/)
