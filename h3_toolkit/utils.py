@@ -1,8 +1,9 @@
+import logging
+
 import geopandas as gpd
 import polars as pl
 from h3ronpy import ContainmentMode as Cont
 from shapely import to_wkb
-import logging
 
 
 def geom_to_wkb(df:gpd.GeoDataFrame, geometry:str)->pl.DataFrame:
