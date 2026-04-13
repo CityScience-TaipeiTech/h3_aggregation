@@ -3,6 +3,7 @@
 """
 
 
+import warnings
 from abc import ABC, abstractmethod
 
 import polars as pl
@@ -14,38 +15,47 @@ class AggregationStrategy(ABC):
     def apply(self, data:pl.LazyFrame, target_cols:list[str]) -> pl.LazyFrame:
         raise NotImplementedError("Subclasses must implement this method")
 
-class SplitEqually(AggregationStrategy):
-    """
+class EqualSplit(AggregationStrategy):
+    """Disaggregation strategy that divides a polygon's value equally across all H3 cells
+    that fall within it.
+
     .. image:: ../../images/SplitEqually.svg
     """
     def __init__(self, agg_col:str):
         """
         Args:
-            agg_col (str): usually is the boundary, ie: city, town, village, etc.
+            agg_col (str): the boundary column used to group cells, e.g. city, town, village.
         """
         self.agg_col = agg_col
 
     def apply(self, data:pl.LazyFrame, target_cols:list[str]) -> pl.LazyFrame:
-        """Provide an example
-
-        Args:
-            data (pl.LazyFrame): _description_
-            target_cols (list[str]): _description_
-            agg_col (str): _description_
-        """
         return (
             data
             .with_columns([
-                # first / count over agg_cols(usually is a boundary)
+                # first / count over agg_col (usually a boundary identifier)
                 ((pl.first(col).over(self.agg_col)) /
-                (pl.count(col).over(self.agg_col))).alias(col) # overwrite the original column
+                (pl.count(col).over(self.agg_col))).alias(col)  # overwrite the original column
                 for col in target_cols
             ])
-            .select( # only keep the necessary columns
+            .select(  # only keep the necessary columns
                 pl.col('cell'),
                 pl.col(target_cols)
             )
         )
+
+
+class SplitEqually(EqualSplit):
+    """Deprecated. Use :class:`EqualSplit` instead."""
+
+    def __init__(self, agg_col: str):
+        warnings.warn(
+            "SplitEqually is deprecated and will be removed in a future version. "
+            "Use EqualSplit instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(agg_col)
+
 
 class Centroid(AggregationStrategy):
     """
@@ -64,26 +74,33 @@ class Centroid(AggregationStrategy):
             )
         )
 
-class SumUp(AggregationStrategy):
-    """
+class Sum(AggregationStrategy):
+    """Aggregation strategy that groups H3 cells and sums the target columns.
+
     .. image:: ../../images/SumUp.svg
     """
-    def apply(self, df: pl.DataFrame, target_cols: list[str]) -> pl.DataFrame:
-        """
-        Scale Up Function
-        target_cols: list, the columns to be aggregated
-        """
-        # target_cols = [
-        # target_col for target_col in target_cols if target_col in df.collect_schema().names()]
+    def apply(self, data: pl.LazyFrame, target_cols: list[str]) -> pl.LazyFrame:
         return (
-            df
-            .group_by(
-                'cell'
-            )
+            data
+            .group_by('cell')
             .agg(
                 pl.col(target_cols).cast(pl.Float64).sum()
             )
         )
+
+
+class SumUp(Sum):
+    """Deprecated. Use :class:`Sum` instead."""
+
+    def __init__(self):
+        warnings.warn(
+            "SumUp is deprecated and will be removed in a future version. "
+            "Use Sum instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__()
+
 
 class Mean(AggregationStrategy):
     """

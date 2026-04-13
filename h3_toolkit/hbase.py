@@ -11,16 +11,7 @@ from tqdm.asyncio import tqdm
 from .utils import setup_default_logger
 
 
-class SingletontMeta(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-class HBaseClient(metaclass=SingletontMeta):
+class HBaseClient:
     """
     Initializes the HBaseClient instance for fetching and sending data to HBase servers.
 
