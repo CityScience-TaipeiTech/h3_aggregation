@@ -60,7 +60,8 @@ class HBaseClient:
         self.fetch_url = fetch_url
         self.send_url = send_url
         self.token = token
-        self.semaphore = asyncio.Semaphore(max_concurrent_requests)
+        self.max_concurrent_requests = max_concurrent_requests
+        self.semaphore = None  # Lazily initialized in async context
         self.chunk_size = chunk_size
 
         self.logger = setup_default_logger(__name__, logging.WARNING)
@@ -70,7 +71,7 @@ class HBaseClient:
         User-friendly representation of the HBaseClient instance when printed.
         """
         return f"HBaseClient(\n fetch_url = {self.fetch_url}, \n send_url = {self.send_url}, \n token = {self._obfuscate_token(self.token)}, \
-            \n max_concurrent_requests = {self.semaphore._value}, \n chunk_size = {self.chunk_size}\n)" #noqa
+            \n max_concurrent_requests = {self.max_concurrent_requests}, \n chunk_size = {self.chunk_size}\n)" #noqa
 
     def _obfuscate_token(self, token):
         """
@@ -108,6 +109,13 @@ class HBaseClient:
         return None
 
     async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys):
+        # Lazily initialize the semaphore in async context to ensure it's bound
+        # to the correct event loop. This is safe because asyncio is single-threaded:
+        # even if multiple coroutines check this condition, only one will execute
+        # the assignment at any given moment.
+        if self.semaphore is None:
+            self.semaphore = asyncio.Semaphore(self.max_concurrent_requests)
+
         total_chunks = len(rowkeys) // self.chunk_size + 1
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
@@ -201,6 +209,10 @@ class HBaseClient:
         return "Failed"
 
     async def _send_data_main(self, data, table_name, cf, cq_list, rowkey_col, timestamp):
+        # Lazily initialize the semaphore in async context (see _fetch_data_main for details)
+        if self.semaphore is None:
+            self.semaphore = asyncio.Semaphore(self.max_concurrent_requests)
+
         total_chunks = data.shape[0] // self.chunk_size + 1
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
