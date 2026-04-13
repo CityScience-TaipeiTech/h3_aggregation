@@ -46,13 +46,74 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     """
     Calculate initial pydeck ViewState based on hex_ids extent.
 
+    Uses h3ronpy to get hexagon boundaries and calculates map center and zoom.
+
     Args:
         hex_ids: List of H3 hexagon IDs.
 
     Returns:
-        Dictionary with keys: longitude, latitude, zoom, pitch, bearing.
+        Dictionary with ViewState: longitude, latitude, zoom, pitch, bearing.
     """
-    pass
+    import math
+    import h3ronpy
+
+    # Collect all boundary points from all hexagons
+    all_lats = []
+    all_lons = []
+
+    for hex_id in hex_ids:
+        try:
+            # Get the boundary of this hexagon as list of (lat, lon) tuples
+            boundary = h3ronpy.cells.cell_to_boundary(hex_id)
+            for lat, lon in boundary:
+                all_lats.append(lat)
+                all_lons.append(lon)
+        except Exception:
+            # Skip invalid hex IDs
+            continue
+
+    if not all_lats or not all_lons:
+        # Default view if no valid hexagons
+        return {
+            "longitude": 0,
+            "latitude": 0,
+            "zoom": 2,
+            "pitch": 0,
+            "bearing": 0
+        }
+
+    # Calculate bounds
+    min_lat, max_lat = min(all_lats), max(all_lats)
+    min_lon, max_lon = min(all_lons), max(all_lons)
+
+    # Calculate center
+    center_lat = (min_lat + max_lat) / 2
+    center_lon = (min_lon + max_lon) / 2
+
+    # Calculate zoom based on extent
+    lat_range = max_lat - min_lat
+    lon_range = max_lon - min_lon
+    max_range = max(lat_range, lon_range)
+
+    # Add 10% padding
+    max_range = max_range * 1.1
+
+    # Standard zoom formula: zoom = log2(360 * 2^8 / (max_lon - min_lon))
+    if max_range > 0:
+        zoom = 8 - math.log2(max_range / 360)
+    else:
+        zoom = 15  # Default high zoom for small areas
+
+    # Clamp zoom to valid range
+    zoom = max(0, min(20, zoom))
+
+    return {
+        "longitude": center_lon,
+        "latitude": center_lat,
+        "zoom": zoom,
+        "pitch": 0,
+        "bearing": 0
+    }
 
 
 def _set_color(

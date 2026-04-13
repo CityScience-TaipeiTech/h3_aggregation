@@ -69,13 +69,57 @@ class TestColorSetting:
 class TestBoundaryCalculation:
     """Test map boundary and view state calculation."""
 
-    @pytest.mark.skipif(
-        True,  # Will be updated after implementation
-        reason="Waiting for implementation"
-    )
-    def test_calculate_initial_view_state(self):
-        """Test automatic view state calculation."""
-        pass
+    def test_calculate_initial_view_state_with_single_hex(self):
+        """Test view state calculation with a single hexagon."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import _calculate_initial_view_state
+
+        # Use a real H3 hex ID
+        hex_ids = ['8c4ba0a4e15ffff']
+
+        result = _calculate_initial_view_state(hex_ids)
+
+        assert isinstance(result, dict)
+        assert 'longitude' in result
+        assert 'latitude' in result
+        assert 'zoom' in result
+        assert 'pitch' in result
+        assert 'bearing' in result
+
+        # Validate ranges
+        assert -180 <= result['longitude'] <= 180
+        assert -90 <= result['latitude'] <= 90
+        assert 0 <= result['zoom'] <= 20
+        assert 0 <= result['pitch'] <= 60
+        assert 0 <= result['bearing'] <= 360
+
+    def test_calculate_initial_view_state_with_multiple_hexes(self):
+        """Test view state calculation with multiple hexagons."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import _calculate_initial_view_state
+
+        # Multiple hex IDs covering different areas
+        hex_ids = [
+            '8c4ba0a4e15ffff',
+            '8c4ba0a4e14ffff',
+            '8c4ba0a4e13ffff',
+        ]
+
+        result = _calculate_initial_view_state(hex_ids)
+
+        # Should return valid result
+        assert isinstance(result, dict)
+        assert all(k in result for k in ['longitude', 'latitude', 'zoom', 'pitch', 'bearing'])
 
 
 class TestShow:
