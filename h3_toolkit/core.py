@@ -271,8 +271,8 @@ class H3Toolkit:
         if data is not None:
             self.result = data
 
-        # 如果前面執行過process_from_geometry，就會有source_resolution
-        if self.source_resolution is not None:
+        # 如果使用者沒有明確提供 source_resolution，才使用 instance 上的值
+        if source_resolution is None and self.source_resolution is not None:
             source_resolution = self.source_resolution
 
         # check resolution is from 0 to 15
