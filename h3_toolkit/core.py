@@ -381,7 +381,8 @@ class H3Toolkit:
         table_name:str,
         column_family:str,
         column_qualifier: list[str],
-        rowkeys:list[str] = None
+        rowkeys:list[str] = None,
+        timerange: tuple[str, str] = None
     ) -> H3Toolkit:
         """
         Fetches data from an HBase table based on H3 index row keys.
@@ -405,6 +406,9 @@ class H3Toolkit:
             rowkeys (list[str], optional):
                 A list of H3 indices to fetch data from the HBase table. If not provided,
                 the method will use self.result, which contains the processed H3 data.
+            timerange (tuple[str, str], optional):
+                A time range for querying data. For example,
+                ('2011-06-29T00:00:00Z', '2011-06-30T00:00:00Z').
 
         Returns:
             H3Toolkit:
@@ -432,7 +436,7 @@ class H3Toolkit:
             >>> toolkit = H3Toolkit()
             >>> hex_ids = ['8c4ba1d2914b9ff', '8c4ba1d2914b8ff', '8c4ba1d2914b7ff']
             >>> toolkit.set_hbase_client(hbase_client)
-            >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids)
+            >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids, timerange=('2011-06-29T00:00:00Z', '2011-06-30T00:00:00Z'))
         """ # noqa: E501
 
         if self.result.is_empty():
@@ -448,6 +452,7 @@ class H3Toolkit:
                 column_family=column_family,
                 column_qualifier=column_qualifier,
                 rowkeys=self.result['hex_id'].to_list(),
+                timerange=timerange
             )
             self.result = self.result.join(fetched, on='hex_id', how='left')
         else:

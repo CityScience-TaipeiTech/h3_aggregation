@@ -108,7 +108,7 @@ class HBaseClient:
             await asyncio.sleep(1)
         return None
 
-    async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys):
+    async def _fetch_data_main(self, table_name, cf, cq_list, rowkeys, timerange=None):
         # Lazily initialize the semaphore in async context to ensure it's bound
         # to the correct event loop. This is safe because asyncio is single-threaded:
         # even if multiple coroutines check this condition, only one will execute
@@ -126,6 +126,8 @@ class HBaseClient:
                         "rowkey": json.dumps(rowkeys[start:start + self.chunk_size]),
                         "column_qualifiers": json.dumps({cf: cq_list})
                     }
+                    if timerange:
+                        form_data["timerange"] = f"{timerange[0]}~{timerange[1]}"
                     tasks.append(self._fetch_data_with_retry(session, form_data))
                     pbar.update(1)
 
@@ -271,11 +273,12 @@ class HBaseClient:
                 table_name:str,
                 column_family:str,
                 column_qualifier:list[str],
-                rowkeys:list[str]):
+                rowkeys:list[str],
+                timerange: tuple[str, str] = None):
         """This coroutine is used by afetch_from_hbase
         """
         result = await self._fetch_data_main(
-                table_name, column_family, column_qualifier, rowkeys
+                table_name, column_family, column_qualifier, rowkeys, timerange
             )
         result = (
             result
@@ -293,7 +296,8 @@ class HBaseClient:
                 table_name:str,
                 column_family:str,
                 column_qualifier:list[str],
-                rowkeys:list[str]
+                rowkeys:list[str],
+                timerange: tuple[str, str] = None
         )->pl.DataFrame:
         """Starting a new event loop to fetch data from HBase in async mode. \
         NOTICE: This function can't fit with fastapi, because it will start a new event loop. \
@@ -304,6 +308,7 @@ class HBaseClient:
             cf: str, the column family in HBase, ex: "demographic"
             cq_list: list[str], the column qualifier in HBase, ex: ["p_cnt", "h_cnt"]
             rowkeys: list[str], the rowkeys to be fetched, ex: ["8c4ba0a415749ff","8c4ba0a415741ff"]
+            timerange: tuple[str, str], optional, time range for querying, ex: ("2011-06-29T00:00:00Z", "2011-06-30T00:00:00Z")
 
         Returns:
             pl.DataFrame: the fetched data in polars DataFrame
@@ -318,7 +323,7 @@ class HBaseClient:
 
         self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase") # noqa: E501
 
-        coro = self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys)
+        coro = self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys, timerange)
         try:
             asyncio.get_running_loop()
             # A running event loop exists (e.g., Jupyter Notebook).
