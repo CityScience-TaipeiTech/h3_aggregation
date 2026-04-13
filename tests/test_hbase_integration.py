@@ -9,6 +9,7 @@ Environment variables:
     HBASE_TOKEN: Authentication token for HBase
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -23,8 +24,8 @@ from h3_toolkit.hbase import HBaseClient
 HBASE_TABLE_NAME = 'res_10_time_data'
 HBASE_COLUMN_FAMILY = 'segis_population_statistic'
 HBASE_COLUMN_QUALIFIERS = ['p_cnt']
-HBASE_TIMERANGE_START = '2020-01-01T00:00:00Z'
-HBASE_TIMERANGE_END = '2024-12-31T23:59:59Z'
+HBASE_TIMERANGE_START = '2020-01-01'
+HBASE_TIMERANGE_END = '2024-12-31'
 # ===================================================================
 
 
@@ -220,12 +221,19 @@ class TestHBaseDataAnalysis:
             timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
         )
 
-        coverage = len(result) / len(test_hex_ids) * 100
+        # Calculate coverage: how many unique hex_ids have at least one row
+        unique_hex_ids_with_data = result['hex_id'].n_unique()
+        coverage = unique_hex_ids_with_data / len(test_hex_ids) * 100
 
         print(f"\n✅ Data coverage:")
         print(f"Total hex IDs queried: {len(test_hex_ids)}")
-        print(f"Rows with data: {len(result)}")
-        print(f"Coverage: {coverage:.2f}%")
+        print(f"Unique hex IDs with data: {unique_hex_ids_with_data}")
+        print(f"Total rows (with time dimension): {len(result)}")
+        print(f"Coverage: {coverage:.2f}% ({unique_hex_ids_with_data}/{len(test_hex_ids)})")
+
+        # Show average rows per hex_id
+        avg_rows_per_hex = len(result) / unique_hex_ids_with_data if unique_hex_ids_with_data > 0 else 0
+        print(f"Avg rows per hex_id: {avg_rows_per_hex:.1f}")
 
         # Show sample of available data
         if not result.is_empty():
