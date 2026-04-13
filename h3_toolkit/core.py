@@ -667,7 +667,9 @@ class H3Toolkit:
                 Additional arguments for pdk.Deck (map_style, pitch, bearing, etc.).
 
         Returns:
-            H3Toolkit: Returns self for method chaining.
+            pydeck.Deck | H3Toolkit:
+                Returns pydeck.Deck when displaying in Jupyter (save_to=None).
+                Returns self for method chaining when saving to file.
 
         Raises:
             ValueError: If result is empty or column not found.
@@ -692,7 +694,7 @@ class H3Toolkit:
         from .visualization import show_h3
 
         # Call visualization function
-        show_h3(
+        deck = show_h3(
             data=self.result,
             target_col=target_col,
             h3_col=h3_col,
@@ -703,4 +705,5 @@ class H3Toolkit:
             **pydeck_kwargs
         )
 
-        return self
+        # Return Deck object for Jupyter display, or self if saved to file
+        return deck if deck is not None else self

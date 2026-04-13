@@ -11,7 +11,7 @@ class TestH3ToolkitShow:
     def test_show_with_result_data(self):
         """Test show() with data already in toolkit.result."""
         try:
-            import pydeck  # noqa: F401
+            import pydeck as pdk  # noqa: F401
             import mapclassify  # noqa: F401
         except ImportError:
             pytest.skip("Visualization dependencies not installed")
@@ -24,10 +24,10 @@ class TestH3ToolkitShow:
             'value': [10.5, 20.3]
         })
 
-        # show() should return toolkit (for chaining)
+        # show() should return Deck object for display in Jupyter
         result = toolkit.show('value')
 
-        assert result is toolkit
+        assert isinstance(result, pdk.Deck)
 
     def test_show_raises_without_result(self):
         """Test that show() raises ValueError if result is empty."""
@@ -45,7 +45,7 @@ class TestH3ToolkitShow:
     def test_show_with_custom_parameters(self):
         """Test show() with custom classifier, k, and cmap."""
         try:
-            import pydeck  # noqa: F401
+            import pydeck as pdk  # noqa: F401
             import mapclassify  # noqa: F401
         except ImportError:
             pytest.skip("Visualization dependencies not installed")
@@ -63,7 +63,7 @@ class TestH3ToolkitShow:
             cmap='viridis'
         )
 
-        assert result is toolkit
+        assert isinstance(result, pdk.Deck)
 
     def test_show_save_html(self, tmp_path):
         """Test show() saving to HTML file."""
@@ -81,6 +81,8 @@ class TestH3ToolkitShow:
 
         output_file = tmp_path / "map.html"
 
-        toolkit.show('value', save_to=str(output_file))
+        # When save_to is specified, should return toolkit for chaining
+        result = toolkit.show('value', save_to=str(output_file))
 
         assert output_file.exists()
+        assert result is toolkit  # Returns toolkit when saving to file
