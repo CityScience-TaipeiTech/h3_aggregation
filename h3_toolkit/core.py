@@ -408,7 +408,7 @@ class H3Toolkit:
                 the method will use self.result, which contains the processed H3 data.
             timerange (tuple[str, str], optional):
                 A time range for querying data. For example,
-                ('2011-06-29T00:00:00Z', '2011-06-30T00:00:00Z').
+                ('2011-06-29', '2011-06-30').
 
         Returns:
             H3Toolkit:
@@ -436,7 +436,7 @@ class H3Toolkit:
             >>> toolkit = H3Toolkit()
             >>> hex_ids = ['8c4ba1d2914b9ff', '8c4ba1d2914b8ff', '8c4ba1d2914b7ff']
             >>> toolkit.set_hbase_client(hbase_client)
-            >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids, timerange=('2011-06-29T00:00:00Z', '2011-06-30T00:00:00Z'))
+            >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids, timerange=('2011-06-01', '2011-06-30'))
         """ # noqa: E501
 
         if self.result.is_empty():
@@ -631,3 +631,76 @@ class H3Toolkit:
             )
         else:
             return result
+
+    def show(
+        self,
+        target_col: str,
+        h3_col: str = 'hex_id',
+        classifier: str = 'NaturalBreaks',
+        k: int = 5,
+        cmap: str = 'Oranges',
+        save_to: str | None = None,
+        **pydeck_kwargs
+    ) -> 'H3Toolkit':
+        """
+        Visualize H3 hexagon data layer.
+
+        Automatically calculates map boundaries and initial view state based on data extent.
+        Supports multiple classification methods and color maps.
+
+        Args:
+            target_col (str):
+                Column name to visualize using color classification.
+            h3_col (str, optional):
+                H3 hexagon ID column name. Defaults to 'hex_id'.
+            classifier (str, optional):
+                mapclassify classification method name. Defaults to 'NaturalBreaks'.
+                See: https://pysal.org/mapclassify/api.html
+            k (int, optional):
+                Number of classes for classification. Defaults to 5.
+            cmap (str, optional):
+                matplotlib colormap name. Defaults to 'Oranges'.
+                See: https://matplotlib.org/stable/users/explain/colors/colormaps.html
+            save_to (str | None, optional):
+                Path to save HTML file. If None, displays in Jupyter. Defaults to None.
+            **pydeck_kwargs:
+                Additional arguments for pdk.Deck (map_style, pitch, bearing, etc.).
+
+        Returns:
+            H3Toolkit: Returns self for method chaining.
+
+        Raises:
+            ValueError: If result is empty or column not found.
+            ImportError: If visualization dependencies are missing.
+
+        Examples:
+            >>> toolkit = H3Toolkit()
+            >>> toolkit.process_from_vector(geo_df)
+            >>> toolkit.fetch_from_hbase(...)
+            >>> toolkit.show('population')
+
+            >>> toolkit.show('population', classifier='Quantiles', k=6, cmap='viridis')
+
+            >>> toolkit.show('population', save_to='map.html')
+        """
+        if self.result.is_empty():
+            raise ValueError(
+                "No data to visualize. Please process data first "
+                "using process_from_vector(), process_from_raster(), or process_from_h3()."
+            )
+
+        from .visualization import show_h3
+
+        # Call visualization function
+        show_h3(
+            data=self.result,
+            target_col=target_col,
+            h3_col=h3_col,
+            classifier=classifier,
+            k=k,
+            cmap=cmap,
+            save_to=save_to,
+            **pydeck_kwargs
+        )
+
+        return self
