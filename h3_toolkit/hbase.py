@@ -339,10 +339,15 @@ class HBaseClient:
         result = (
             result
             .unnest('properties')
-            .pivot(index="row", values="value", on="qualifier")
+            .pivot(
+                index=["row", "timestamp"],
+                values="value",
+                on="qualifier"
+            )
             .select(
                 pl.col("row").alias("hex_id"),
-                pl.exclude("row")
+                pl.col("timestamp"),
+                pl.exclude("row", "timestamp")
             )
         )
         self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Finish fetching data from HBase") # noqa: E501
