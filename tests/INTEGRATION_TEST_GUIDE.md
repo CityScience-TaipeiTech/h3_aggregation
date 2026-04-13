@@ -4,13 +4,22 @@ This guide explains how to run integration tests against a real HBase backend us
 
 ## Setup
 
-### 1. Set Environment Variables
+### 1. Get HBase API Token
 
-Before running the tests, export your HBase credentials:
+First, you need to register an account and get an API token:
+
+1. Go to: http://10.100.1.64:2891/swagger/index.html
+2. Register a new account
+3. Get your API token from the account page
+4. Save it for the next step
+
+### 2. Set Environment Variables
+
+Export your HBase credentials:
 
 ```bash
 export HBASE_FETCH_API="http://10.100.1.64:2891/api/hbase/v1/test/filterdata2"
-export HBASE_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYWRtaW4ifQ.psX7mLX4HUQ2mrb2RYBSWbdF72_W7N9IcC59KOX-H5I"
+export HBASE_TOKEN="xxx"
 ```
 
 **Security Note**: Never commit credentials to version control. Use a `.env` file locally:
@@ -27,7 +36,7 @@ source .env
 pytest tests/test_hbase_integration.py -v
 ```
 
-### 2. Activate Virtual Environment
+### 3. Activate Virtual Environment
 
 ```bash
 source .venv/bin/activate
@@ -157,10 +166,12 @@ curl -H "Authorization: Bearer $HBASE_TOKEN" \
 ```
 
 ### 3. "Invalid token" or "Unauthorized"
-**Solution**: Verify token hasn't expired. Get a new token from:
-```
-http://10.100.2.218:2891/swagger/index.html#/user/post_user_login
-```
+**Solution**: Token may have expired. Get a new token from:
+
+1. Go to: http://10.100.1.64:2891/swagger/index.html
+2. Sign in with your account credentials
+3. Navigate to account settings to get a new API token
+4. Update your `HBASE_TOKEN` environment variable
 
 ### 4. "Table not found" or "Column family not found"
 **Possible causes**:

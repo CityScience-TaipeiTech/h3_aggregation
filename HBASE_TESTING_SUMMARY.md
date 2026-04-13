@@ -12,13 +12,19 @@ You have two ways to test your HBase integration:
 ## Method 1: Pytest Integration Tests (✅ Comprehensive)
 
 ### Setup
+
+#### Step 1: Get API Token
+1. Register account at: http://10.100.1.64:2891/swagger/index.html
+2. Get your API token from account settings
+
+#### Step 2: Configure Environment
 ```bash
 cd /Users/syuanbo/Documents/GitHub/H3-ToolKits
 source .venv/bin/activate
 
 # Set environment variables
 export HBASE_FETCH_API="http://10.100.1.64:2891/api/hbase/v1/test/filterdata2"
-export HBASE_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYWRtaW4ifQ.psX7mLX4HUQ2mrb2RYBSWbdF72_W7N9IcC59KOX-H5I"
+export HBASE_TOKEN="your-token-from-swagger-page"
 ```
 
 ### Run All Tests
