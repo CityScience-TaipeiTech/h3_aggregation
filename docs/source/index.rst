@@ -27,6 +27,7 @@ Get started with h3-toolkit to enhance your geospatial data processing and make 
 .. toctree::
    :maxdepth: 3
    :caption: Documentation
+   :numbered:
 
    concepts/index
    api/modules
