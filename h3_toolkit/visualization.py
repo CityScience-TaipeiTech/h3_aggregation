@@ -46,7 +46,8 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     """
     Calculate initial pydeck ViewState based on hex_ids extent.
 
-    Uses h3ronpy to get hexagon boundaries and calculates map center and zoom.
+    Uses h3ronpy.pandas.vector.cells_to_polygons to get hexagon geometries,
+    then derives map center and zoom from the total bounds.
 
     Args:
         hex_ids: List of H3 hexagon IDs.
@@ -55,57 +56,46 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
         Dictionary with ViewState: longitude, latitude, zoom, pitch, bearing.
     """
     import math
-    import h3ronpy
+    import pyarrow as pa
+    from h3ronpy.arrow import cells_parse
+    from h3ronpy.pandas.vector import cells_bounds
 
-    # Collect all boundary points from all hexagons
-    all_lats = []
-    all_lons = []
+    default_view = {"longitude": 0, "latitude": 0, "zoom": 2, "pitch": 0, "bearing": 0}
 
-    for hex_id in hex_ids:
-        try:
-            # Get the boundary of this hexagon as list of (lat, lon) tuples
-            boundary = h3ronpy.cells.cell_to_boundary(hex_id)
-            for lat, lon in boundary:
-                all_lats.append(lat)
-                all_lons.append(lon)
-        except Exception:
-            # Skip invalid hex IDs
-            continue
+    if not hex_ids:
+        return default_view
 
-    if not all_lats or not all_lons:
-        # Default view if no valid hexagons
-        return {
-            "longitude": 0,
-            "latitude": 0,
-            "zoom": 2,
-            "pitch": 0,
-            "bearing": 0
-        }
+    try:
+        # Parse hex string cell IDs to uint64 array
+        str_array = pa.array(hex_ids, type=pa.utf8())
+        cells_array = cells_parse(str_array, set_failing_to_invalid=True)
 
-    # Calculate bounds
-    min_lat, max_lat = min(all_lats), max(all_lats)
-    min_lon, max_lon = min(all_lons), max(all_lons)
+        # cells_bounds returns (min_lon, min_lat, max_lon, max_lat)
+        bounds = cells_bounds(cells_array)
+        if bounds is None:
+            return default_view
+        min_lon, min_lat, max_lon, max_lat = bounds
+    except Exception:
+        return default_view
 
-    # Calculate center
     center_lat = (min_lat + max_lat) / 2
     center_lon = (min_lon + max_lon) / 2
 
-    # Calculate zoom based on extent
     lat_range = max_lat - min_lat
     lon_range = max_lon - min_lon
-    max_range = max(lat_range, lon_range)
+    max_range = max(lat_range, lon_range) * 1.1  # 10% padding
 
-    # Add 10% padding
-    max_range = max_range * 1.1
-
-    # Standard zoom formula: zoom = log2(360 * 2^8 / (max_lon - min_lon))
+    # Calculate zoom based on geographic extent using standard formula:
+    # zoom = log2(360 / max_range)
+    # This maps: 360° → zoom 0, 10° → zoom 5, 1° → zoom 8.5, 0.1° → zoom 11.8
     if max_range > 0:
-        zoom = 8 - math.log2(max_range / 360)
+        zoom = math.log2(360 / max_range)
     else:
-        zoom = 15  # Default high zoom for small areas
+        zoom = 12
 
-    # Clamp zoom to valid range
-    zoom = max(0, min(20, zoom))
+    # Clamp zoom to reasonable range; upper bound of 14 prevents
+    # zooming down to individual cell/street level on small extents
+    zoom = max(0, min(14, zoom))
 
     return {
         "longitude": center_lon,

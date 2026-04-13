@@ -250,6 +250,43 @@ class TestShow:
 
         assert isinstance(result, pdk.Deck)
 
+class TestCalculateInitialViewState:
+    """Test _calculate_initial_view_state returns valid bounds."""
+
+    def test_returns_valid_bounds_for_valid_hex_ids(self):
+        """Test that min_lon, min_lat, max_lon, max_lat are finite and in valid ranges."""
+        from h3_toolkit.visualization import _calculate_initial_view_state
+
+        # Valid H3 resolution-7 cell IDs in Taipei area (generated via h3ronpy)
+        hex_ids = ['874ba0a51ffffff', '874ba0a52ffffff', '874ba0a53ffffff']
+        result = _calculate_initial_view_state(hex_ids)
+
+        assert result['longitude'] != 0 or result['latitude'] != 0, \
+            "View state should not be the default fallback (0, 0)"
+        assert -180 <= result['longitude'] <= 180
+        assert -90 <= result['latitude'] <= 90
+        assert 0 <= result['zoom'] <= 20
+        # Verify the center is roughly in Taipei (lon ~121.5, lat ~25.0)
+        assert 120 <= result['longitude'] <= 123
+        assert 24 <= result['latitude'] <= 26
+
+    def test_returns_default_for_empty_list(self):
+        """Test that empty hex_ids returns default world view."""
+        from h3_toolkit.visualization import _calculate_initial_view_state
+
+        result = _calculate_initial_view_state([])
+
+        assert result == {"longitude": 0, "latitude": 0, "zoom": 2, "pitch": 0, "bearing": 0}
+
+    def test_returns_default_for_invalid_hex_ids(self):
+        """Test that all-invalid hex_ids returns default view."""
+        from h3_toolkit.visualization import _calculate_initial_view_state
+
+        result = _calculate_initial_view_state(["invalid_hex", "not_a_cell"])
+
+        assert result == {"longitude": 0, "latitude": 0, "zoom": 2, "pitch": 0, "bearing": 0}
+
+
     def test_show_h3_raises_on_missing_column(self):
         """Test that show_h3 raises ValueError for missing column."""
         try:
