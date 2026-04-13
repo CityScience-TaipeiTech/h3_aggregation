@@ -145,10 +145,12 @@ class Count(AggregationStrategy):
                 .fill_null('null')
             )
 
+            # Note: pivot() operation requires eager evaluation (cannot be done lazily in Polars).
+            # We must call .collect() to materialize the data before pivoting. This breaks the
+            # lazy chain temporarily, but is unavoidable for this aggregation strategy.
             pivoted_df = (
                 counts_df
                 .collect()
-                # lazyframe -> dataframe, dataframe is needed for pivot
                 .pivot(
                     values = f'{"_".join(target_cols)}_count',
                     index = 'cell',
