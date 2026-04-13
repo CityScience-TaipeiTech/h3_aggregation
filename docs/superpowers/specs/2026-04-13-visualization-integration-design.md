@@ -27,8 +27,10 @@
 | **Jupyter 直接展示** | 在 Notebook 中調用 `toolkit.show()` 自動渲染地圖 |
 | **HTML 導出** | 支持 `toolkit.show(save_to='map.html')` 保存地圖 |
 | **自動邊界計算** | 根據 hexagon 數據自動計算地圖中心和縮放級別 |
-| **顏色分類** | 使用 mapclassify 的 NaturalBreaks 為數據著色 |
-| **自訂參數** | 允許傳遞 pydeck 參數自訂地圖樣式等 |
+| **多種分類方法** | 支援 mapclassify 的各種分類器（NaturalBreaks、Quantiles、JenksNaturalBreaks 等） |
+| **可自訂分類數** | 允許通過 `k` 參數設定分類數量（預設 5） |
+| **顏色映射選擇** | 支援 matplotlib 所有顏色映射（Oranges、Viridis、RdYlGn 等） |
+| **自訂參數** | 允許傳遞 pydeck 參數自訂地圖樣式、傾斜角、方向等 |
 | **獨立函數** | 同時提供 `h3_toolkit.visualization.show_h3()` 獨立函數 |
 | **依賴檢查** | Import 時和調用時都檢查依賴，給出明確安裝指令 |
 
@@ -93,19 +95,33 @@ def show(
     self,
     target_col: str,
     h3_col: str = 'hex_id',
+    classifier: str = 'NaturalBreaks',
+    k: int = 5,
+    cmap: str = 'Oranges',
     save_to: str | None = None,
     **pydeck_kwargs
 ) -> 'H3Toolkit':
     """
     可視化 H3 hexagon 數據層。
     
-    自動根據數據範圍計算地圖邊界和初始視圖狀態。
+    自動根據數據範圍計算地圖邊界和初始視圖狀態。支援多種分類方法和顏色映射。
     
     Args:
         target_col (str):
-            要著色的數據列名。使用 NaturalBreaks 進行分類著色。
+            要著色的數據列名。
         h3_col (str, optional):
             H3 hexagon ID 列名。預設 'hex_id'。
+        classifier (str, optional):
+            mapclassify 分類方法名稱。預設 'NaturalBreaks'。
+            可用選項：'NaturalBreaks', 'EqualInterval', 'Quantiles', 
+            'StdMean', 'JenksNaturalBreaks', 'FisherJenks' 等。
+            詳見：https://pysal.org/mapclassify/api.html
+        k (int, optional):
+            分類數量。預設 5。必須 >= 2。
+        cmap (str, optional):
+            matplotlib 顏色映射名稱。預設 'Oranges'。
+            可用顏色映射：https://matplotlib.org/stable/users/explain/colors/colormaps.html
+            常用例子：'Viridis', 'Plasma', 'Blues', 'Reds', 'RdYlGn' 等。
         save_to (str | None, optional):
             HTML 輸出路徑。若為 None，則在 Jupyter 中直接展示。
             預設 None。
@@ -116,22 +132,39 @@ def show(
         H3Toolkit: 返回自身，支援鏈式調用。
     
     Raises:
-        ValueError: 若 self.result 為空（未經過數據處理）。
+        ValueError: 若 self.result 為空（未經過數據處理）或 k < 2。
         ImportError: 若缺少可視化依賴（pydeck, mapclassify）。
+        ValueError: 若分類器名稱無效或顏色映射不存在。
     
     Examples:
         >>> toolkit = H3Toolkit()
         >>> toolkit.process_from_vector(geo_df)
         >>> toolkit.fetch_from_hbase(...)
-        >>> # Jupyter 中直接展示
+        
+        >>> # 使用預設 NaturalBreaks (k=5) 和 Oranges 顏色
         >>> toolkit.show('population_count')
         
-        >>> # 保存為 HTML
-        >>> toolkit.show('population_count', save_to='map.html')
-        
-        >>> # 自訂地圖樣式
+        >>> # 自訂分類方法和分類數
         >>> toolkit.show(
         ...     'population_count',
+        ...     classifier='Quantiles',
+        ...     k=7
+        ... )
+        
+        >>> # 自訂顏色映射
+        >>> toolkit.show(
+        ...     'population_count',
+        ...     cmap='RdYlGn',
+        ...     k=6
+        ... )
+        
+        >>> # 保存為 HTML 並自訂地圖樣式
+        >>> toolkit.show(
+        ...     'population_count',
+        ...     classifier='JenksNaturalBreaks',
+        ...     cmap='Viridis',
+        ...     k=5,
+        ...     save_to='map.html',
         ...     map_style='mapbox://styles/mapbox/satellite-v9',
         ...     pitch=45
         ... )
@@ -145,6 +178,9 @@ def show_h3(
     data: pl.DataFrame,
     target_col: str,
     h3_col: str = 'hex_id',
+    classifier: str = 'NaturalBreaks',
+    k: int = 5,
+    cmap: str = 'Oranges',
     save_to: str | None = None,
     **pydeck_kwargs
 ) -> pdk.Deck:
@@ -152,10 +188,13 @@ def show_h3(
     獨立的可視化函數，用於渲染 H3 hexagon 層。
     
     Args:
-        data: 包含 H3 hexagon ID 和數值數據的 Polars DataFrame。
-        target_col: 要著色的列名。
-        h3_col: hexagon ID 列名。預設 'hex_id'。
-        save_to: 保存 HTML 的路徑。若為 None 則返回 pdk.Deck。
+        data (pl.DataFrame): 包含 H3 hexagon ID 和數值數據的 Polars DataFrame。
+        target_col (str): 要著色的列名。
+        h3_col (str, optional): hexagon ID 列名。預設 'hex_id'。
+        classifier (str, optional): mapclassify 分類方法。預設 'NaturalBreaks'。
+        k (int, optional): 分類數量。預設 5。
+        cmap (str, optional): matplotlib 顏色映射。預設 'Oranges'。
+        save_to (str | None, optional): 保存 HTML 的路徑。若為 None 則返回 pdk.Deck。
         **pydeck_kwargs: 傳給 pdk.Deck 的參數。
     
     Returns:
@@ -195,11 +234,22 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
 def _set_color(
     data: pl.DataFrame,
     target_col: str,
+    classifier: str = 'NaturalBreaks',
+    k: int = 5,
+    cmap: str = 'Oranges',
 ) -> pl.DataFrame:
     """
-    使用 mapclassify.NaturalBreaks 對數據進行分類著色。
+    使用指定的 mapclassify 分類方法和 matplotlib 顏色映射對數據著色。
     
-    添加 'color' 列，值為 RGBA 四元組 [R, G, B, A]。
+    Args:
+        data: 輸入 DataFrame
+        target_col: 要分類的列名
+        classifier: mapclassify 分類器名稱（如 'NaturalBreaks', 'Quantiles'）
+        k: 分類數量
+        cmap: matplotlib 顏色映射名稱
+    
+    Returns:
+        添加 'color' 列的 DataFrame，值為 RGBA 四元組 [R, G, B, A]。
     """
 
 # 4. 核心可視化函數
@@ -207,11 +257,23 @@ def show_h3(
     data: pl.DataFrame,
     target_col: str,
     h3_col: str = 'hex_id',
+    classifier: str = 'NaturalBreaks',
+    k: int = 5,
+    cmap: str = 'Oranges',
     save_to: str | None = None,
     **pydeck_kwargs
 ) -> pdk.Deck:
     """
     渲染 H3 hexagon 層並返回或保存 pdk.Deck。
+    
+    實現流程：
+    1. 檢查依賴
+    2. 驗證參數（classifier 和 cmap 有效性，k >= 2）
+    3. 調用 _set_color() 進行分類著色
+    4. 計算地圖邊界
+    5. 創建 H3HexagonLayer
+    6. 創建 pdk.Deck 對象
+    7. 若 save_to 非空，保存 HTML；否則返回 Deck 對象
     """
 ```
 
@@ -311,35 +373,98 @@ toolkit = H3Toolkit()
 toolkit.process_from_vector(geo_df, resolution=10)
 toolkit.fetch_from_hbase('table', 'family', ['column'])
 
-# 直接在 Jupyter 展示
+# 直接在 Jupyter 展示（使用預設 NaturalBreaks, k=5, Oranges 顏色）
 toolkit.show('column')
 ```
 
-### 6.2 保存為 HTML
+### 6.2 自訂分類方法和分類數
 
 ```python
-toolkit.show('population_count', save_to='output/map.html')
+# 使用 Quantiles（四分位）分類，分為 4 類
+toolkit.show(
+    'population_count',
+    classifier='Quantiles',
+    k=4
+)
+
+# 使用 JenksNaturalBreaks，分為 7 類
+toolkit.show(
+    'population_count',
+    classifier='JenksNaturalBreaks',
+    k=7
+)
 ```
 
-### 6.3 自訂地圖參數
+### 6.3 自訂顏色映射
+
+```python
+# 使用 Viridis（彩虹色）
+toolkit.show(
+    'population_count',
+    cmap='Viridis',
+    k=6
+)
+
+# 使用 RdYlGn（紅-黃-綠）
+toolkit.show(
+    'population_count',
+    cmap='RdYlGn',
+    k=5
+)
+
+# 使用 Blues（漸層藍色）
+toolkit.show(
+    'temperature',
+    cmap='Blues',
+    k=8
+)
+```
+
+### 6.4 保存為 HTML
 
 ```python
 toolkit.show(
     'population_count',
+    save_to='output/map.html'
+)
+```
+
+### 6.5 組合自訂參數
+
+```python
+# 自訂分類、顏色、地圖樣式並保存
+toolkit.show(
+    'population_count',
+    classifier='EqualInterval',
+    k=6,
+    cmap='RdYlGn',
+    save_to='map.html',
     map_style='mapbox://styles/mapbox/satellite-v9',
     pitch=45,
     bearing=90
 )
 ```
 
-### 6.4 獨立使用可視化函數
+### 6.6 獨立使用可視化函數
 
 ```python
 from h3_toolkit.visualization import show_h3
 
+# 在 Jupyter 展示
 deck = show_h3(
     data=df,
     target_col='value',
+    classifier='Quantiles',
+    k=5,
+    cmap='Viridis'
+)
+
+# 保存為 HTML
+show_h3(
+    data=df,
+    target_col='value',
+    classifier='JenksNaturalBreaks',
+    cmap='RdYlGn',
     save_to='map.html'
 )
 ```
