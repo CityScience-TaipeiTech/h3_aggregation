@@ -9,3 +9,10 @@ Before diving into usage examples, understand how the toolkit is designed to wor
    :maxdepth: 2
 
    method_chaining
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   ../api/modules
+   ../usage/index
