@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import gc
 import json
 import logging
@@ -304,9 +305,19 @@ class HBaseClient:
         # )
 
         self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase") # noqa: E501
-        result = asyncio.run(
-            self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys)
-        )
+
+        coro = self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys)
+        try:
+            asyncio.get_running_loop()
+            # A running event loop exists (e.g., Jupyter Notebook).
+            # asyncio.run() cannot be called here because it would conflict with the
+            # existing loop. Instead, run in a dedicated thread — each thread gets its
+            # own event loop, so asyncio.run() works safely there.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                result = executor.submit(asyncio.run, coro).result()
+        except RuntimeError:
+            # No running event loop (normal Python script).
+            result = asyncio.run(coro)
 
         result = (
             result
@@ -340,9 +351,16 @@ class HBaseClient:
         # ))
 
         self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Start sending data from HBase") # noqa: E501
-        asyncio.run(
-            self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp) # noqa: E501
-        )
+
+        coro = self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp) # noqa: E501
+        try:
+            asyncio.get_running_loop()
+            # A running event loop exists (e.g., Jupyter Notebook).
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, coro).result()
+        except RuntimeError:
+            asyncio.run(coro)
+
         self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Finish sending data from HBase") # noqa: E501
         del data
         gc.collect()
