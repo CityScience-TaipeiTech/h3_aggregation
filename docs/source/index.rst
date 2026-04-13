@@ -29,7 +29,7 @@ Get started with h3-toolkit to enhance your geospatial data processing and make 
    :caption: Documentation
 
    concepts/index
-   usage/index
    api/modules
+   usage/index
 
 .. Installation <>   
