@@ -184,10 +184,86 @@ class TestBoundaryCalculation:
 class TestShow:
     """Test show_h3 function."""
 
-    @pytest.mark.skipif(
-        True,  # Will be updated after implementation
-        reason="Waiting for implementation"
-    )
-    def test_show_h3_returns_deck(self):
+    def test_show_h3_returns_deck_when_no_save_path(self):
         """Test that show_h3 returns a pdk.Deck object."""
-        pass
+        try:
+            import pydeck as pdk
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import show_h3
+
+        data = pl.DataFrame({
+            'hex_id': ['8c4ba0a4e15ffff', '8c4ba0a4e14ffff'],
+            'value': [10.5, 20.3]
+        })
+
+        result = show_h3(data, 'value')
+
+        assert isinstance(result, pdk.Deck)
+
+    def test_show_h3_saves_html_when_save_path_provided(self, tmp_path):
+        """Test that show_h3 saves HTML file when save_to is provided."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import show_h3
+
+        data = pl.DataFrame({
+            'hex_id': ['8c4ba0a4e15ffff', '8c4ba0a4e14ffff'],
+            'value': [10.5, 20.3]
+        })
+
+        output_file = tmp_path / "test_map.html"
+
+        show_h3(data, 'value', save_to=str(output_file))
+
+        assert output_file.exists()
+        assert output_file.stat().st_size > 0
+
+    def test_show_h3_with_custom_parameters(self):
+        """Test show_h3 with custom classifier, k, and cmap."""
+        try:
+            import pydeck as pdk
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import show_h3
+
+        data = pl.DataFrame({
+            'hex_id': ['8c4ba0a4e15ffff', '8c4ba0a4e14ffff', '8c4ba0a4e13ffff'],
+            'value': [10.5, 20.3, 15.7]
+        })
+
+        result = show_h3(
+            data,
+            'value',
+            classifier='Quantiles',
+            k=3,
+            cmap='viridis'
+        )
+
+        assert isinstance(result, pdk.Deck)
+
+    def test_show_h3_raises_on_missing_column(self):
+        """Test that show_h3 raises ValueError for missing column."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import show_h3
+
+        data = pl.DataFrame({
+            'hex_id': ['8c4ba0a4e15ffff'],
+            'other_col': [10.5]
+        })
+
+        with pytest.raises(ValueError, match="not found"):
+            show_h3(data, 'value')

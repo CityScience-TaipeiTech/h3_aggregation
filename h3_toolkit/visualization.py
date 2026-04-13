@@ -221,4 +221,67 @@ def show_h3(
     Returns:
         pdk.Deck object or None if saved to file.
     """
-    pass
+    try:
+        _check_dependencies()
+    except ImportError as e:
+        raise ImportError(
+            f"Cannot visualize data: {e}\n"
+            f"Install visualization dependencies with: pip install h3-toolkit[visualization]"
+        ) from e
+
+    import pydeck as pdk
+
+    # Validate inputs
+    if target_col not in data.columns:
+        raise ValueError(f"Column '{target_col}' not found in data")
+
+    if h3_col not in data.columns:
+        raise ValueError(f"Column '{h3_col}' not found in data")
+
+    if k < 2:
+        raise ValueError(f"k must be >= 2, got {k}")
+
+    # Add colors to data
+    data_with_colors = _set_color(
+        data,
+        target_col,
+        classifier=classifier,
+        k=k,
+        cmap=cmap
+    )
+
+    # Convert to dict format for pydeck
+    data_dict = data_with_colors.to_dicts()
+
+    # Calculate view state
+    hex_ids = data[h3_col].to_list()
+    view_state = _calculate_initial_view_state(hex_ids)
+
+    # Create H3 hexagon layer
+    layer = pdk.Layer(
+        'H3HexagonLayer',
+        data_dict,
+        get_fill_color='color',
+        get_hexagon=h3_col,
+        pickable=True,
+        opacity=0.4,
+        stroked=False,
+        filled=True,
+        extruded=False,
+    )
+
+    # Create deck
+    deck = pdk.Deck(
+        layers=[layer],
+        initial_view_state=pdk.ViewState(**view_state),
+        tooltip={"text": f"{target_col}: {{{target_col}}}"},
+        **pydeck_kwargs
+    )
+
+    # Save or return
+    if save_to:
+        deck.to_html(save_to)
+        logger.info(f"Map saved to {save_to}")
+        return None
+    else:
+        return deck
