@@ -128,7 +128,6 @@ class H3Toolkit:
         self.result = (
             self.raw_data
             .lazy()
-            .fill_nan(0)
             .pipe(wkb_to_cells, self.source_resolution, geometry_col)
             .pipe(self._apply_strategy) # apply the aggregation strategy
             .select(
@@ -198,7 +197,6 @@ class H3Toolkit:
             compact = False,
             # geo = False,
         )
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
 
         self.result = (
             self.raw_data
@@ -210,6 +208,7 @@ class H3Toolkit:
             )
             .collect(streaming=True)
         )
+        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
 
         return self
 
@@ -273,7 +272,7 @@ class H3Toolkit:
             self.result = data
 
         # 如果前面執行過process_from_geometry，就會有source_resolution
-        if self.source_resolution:
+        if self.source_resolution is not None:
             source_resolution = self.source_resolution
 
         # check resolution is from 0 to 15
@@ -444,12 +443,13 @@ class H3Toolkit:
                                 before fetching data from HBase.")
 
         if self.client:
-            self.result = self.client.fetch_data(
+            fetched = self.client.fetch_data(
                 table_name=table_name,
                 column_family=column_family,
                 column_qualifier=column_qualifier,
                 rowkeys=self.result['hex_id'].to_list(),
             )
+            self.result = self.result.join(fetched, on='hex_id', how='left')
         else:
             raise HBaseConnectionError("The HBase client didn't set, use `set_hbase_client()` \
                                         to set the HBase client before fetching data from hbase.")
@@ -567,7 +567,7 @@ class H3Toolkit:
         return self
 
 
-    def get_result(self, return_geometry:bool=False) -> pl.DataFrame | gpd.GeoDataFrame:
+    def get_result(self, return_geometry:bool=False, fill_null_value:int|float=0) -> pl.DataFrame | gpd.GeoDataFrame:
         """Retrieves the result of the data processing, optionally converting H3 cells back to geometries.
 
         This method returns the processed data, which can either remain in H3 cell format or be converted
@@ -578,6 +578,10 @@ class H3Toolkit:
             return_geometry (bool, optional): Whether to convert the H3 cells to geometries.
                 Defaults to False. If set to True, the result will be returned as a GeoDataFrame with
                 geometries corresponding to the H3 cells.
+            fill_null_value (int | float | None, optional): The value to fill null values in numeric columns.
+                Only numeric columns (int64, float64) are affected. String and other non-numeric columns
+                retain their null values. Set to None to preserve all null values without filling.
+                Defaults to 0 for backward compatibility.
 
         Returns:
             pl.DataFrame | gpd.GeoDataFrame: The processed data. If `return_geometry` is False,
@@ -591,18 +595,28 @@ class H3Toolkit:
             >>> from h3_toolkit import H3Toolkit
             >>> toolkit = H3Toolkit()
             >>> toolkit.process_from_vector(geo_df)
-            >>> result = toolkit.get_result(return_geometry=True)
+            >>> # Get result with null values filled as 0 (default)
+            >>> result = toolkit.get_result()
+            >>> # Get result preserving null values to identify missing data
+            >>> result = toolkit.get_result(fill_null_value=None)
+            >>> # Get result with custom fill value
+            >>> result = toolkit.get_result(fill_null_value=-999)
 
         Note:
             - The method checks if the result has been processed before retrieval, raising a `ValueError` if the data is not available.
             - If `return_geometry` is True, the method will convert H3 cells into geometries using the `cell_to_geom` method and return a GeoDataFrame.
-            - The resulting data will have any null values filled with 0 before being returned.
+            - Only numeric columns (int64, float64) are affected by null filling. Other data types are left untouched.
             - Future versions might include functionality to merge identical rows and process geometries more efficiently.
         """ #noqa: E501
         if self.result.is_empty():
             raise ValueError("Please process the data first before getting the result.")
 
-        result = self.result.fill_null(0)
+        result = self.result
+        if fill_null_value is not None:
+            # Only fill null values in numeric columns to avoid data corruption in non-numeric columns
+            result = result.with_columns(
+                pl.col(pl.Float64, pl.Int64).fill_null(fill_null_value)
+            )
 
         # TODO: 將完全相同的row merge在一起, 配合cells_to_wkb_polygons
         if return_geometry:
