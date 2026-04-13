@@ -126,17 +126,73 @@ def _set_color(
     """
     Add color column to data based on classification.
 
+    Uses mapclassify to classify data and matplotlib to map colors.
+
     Args:
         data: Input DataFrame.
         target_col: Column to classify.
-        classifier: mapclassify classifier name.
+        classifier: mapclassify classifier name (e.g., 'NaturalBreaks', 'Quantiles').
         k: Number of classes.
         cmap: matplotlib colormap name.
 
     Returns:
-        DataFrame with 'color' column added (RGBA tuples).
+        DataFrame with 'color' column added (RGBA tuples [R, G, B, A]).
     """
-    pass
+    import mapclassify as mc
+    from matplotlib import colormaps
+
+    # Validate inputs
+    if k < 2:
+        raise ValueError(f"k must be >= 2, got {k}")
+
+    if target_col not in data.columns:
+        raise ValueError(f"Column '{target_col}' not found in data")
+
+    # Convert to pandas for classification (mapclassify works with numpy/pandas)
+    df_pandas = data.to_pandas()
+    values = df_pandas[target_col].values
+
+    # Create classifier
+    try:
+        classifier_class = getattr(mc, classifier)
+        classification = classifier_class(values, k=k)
+    except AttributeError:
+        raise ValueError(
+            f"Unknown classifier '{classifier}'. "
+            f"See https://pysal.org/mapclassify/api.html for available classifiers."
+        )
+
+    # Get the bin (class) for each value
+    # mapclassify stores the bin assignment in the yb attribute
+    bins = classification.yb
+
+    # Get colormap
+    try:
+        cmap_obj = colormaps[cmap]
+    except KeyError:
+        raise ValueError(
+            f"Unknown colormap '{cmap}'. "
+            f"See https://matplotlib.org/stable/users/explain/colors/colormaps.html"
+        )
+
+    # Map each bin to a color
+    colors = []
+    for bin_idx in bins:
+        # Normalize bin index to [0, 1] for colormap
+        normalized = bin_idx / (k - 1) if k > 1 else 0
+        rgba = cmap_obj(normalized)
+        # Convert to RGBA (0-255)
+        rgb = [int(255 * c) for c in rgba[:3]]
+        alpha = int(255 * rgba[3]) if len(rgba) > 3 else 255
+        colors.append(rgb + [alpha])
+
+    # Add color column back to original data
+    result = data.clone()
+    result = result.with_columns(
+        pl.Series('color', colors)
+    )
+
+    return result
 
 
 def show_h3(

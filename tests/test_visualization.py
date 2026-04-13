@@ -57,13 +57,72 @@ class TestDependencyCheck:
 class TestColorSetting:
     """Test color setting logic."""
 
-    @pytest.mark.skipif(
-        True,  # Will be updated after implementation
-        reason="Waiting for implementation"
-    )
-    def test_set_color_basic(self):
-        """Test basic color setting with NaturalBreaks."""
-        pass
+    def test_set_color_returns_dataframe_with_color_column(self):
+        """Test that _set_color adds a 'color' column."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import _set_color
+
+        data = pl.DataFrame({
+            'hex_id': ['8c4ba0a4e15ffff', '8c4ba0a4e14ffff', '8c4ba0a4e13ffff'],
+            'value': [10.5, 20.3, 15.7]
+        })
+
+        result = _set_color(data, 'value', classifier='NaturalBreaks', k=3, cmap='Oranges')
+
+        assert 'color' in result.columns
+        assert len(result) == len(data)
+
+        # Check that colors are RGBA tuples
+        color_col = result['color']
+        for color in color_col:
+            assert len(color) == 4  # RGBA
+            assert all(0 <= c <= 255 for c in color)  # Valid RGB values
+
+    def test_set_color_with_different_classifiers(self):
+        """Test _set_color with different mapclassify methods."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import _set_color
+
+        data = pl.DataFrame({
+            'value': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+        })
+
+        classifiers = ['NaturalBreaks', 'Quantiles', 'EqualInterval']
+
+        for clf in classifiers:
+            result = _set_color(data, 'value', classifier=clf, k=3, cmap='Oranges')
+            assert 'color' in result.columns
+            assert len(result) == len(data)
+
+    def test_set_color_with_different_colormaps(self):
+        """Test _set_color with different matplotlib colormaps."""
+        try:
+            import pydeck  # noqa: F401
+            import mapclassify  # noqa: F401
+        except ImportError:
+            pytest.skip("Visualization dependencies not installed")
+
+        from h3_toolkit.visualization import _set_color
+
+        data = pl.DataFrame({
+            'value': [1.0, 2.0, 3.0, 4.0, 5.0]
+        })
+
+        cmaps = ['Oranges', 'viridis', 'RdYlGn', 'Blues']
+
+        for cmap in cmaps:
+            result = _set_color(data, 'value', k=3, cmap=cmap)
+            assert 'color' in result.columns
 
 
 class TestBoundaryCalculation:
