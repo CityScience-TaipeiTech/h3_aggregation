@@ -3,6 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import polars as pl
 import pytest
+import rasterio
 
 from h3_toolkit.aggregation import AggregationStrategy, Centroid, EqualSplit, Sum
 from h3_toolkit.core import H3Toolkit
@@ -86,3 +87,56 @@ def test_process_from_h3(h3_toolkit):
     assert not output.is_empty()
     assert "hex_id" in output.columns
     assert "value" in output.columns
+
+
+@pytest.fixture
+def raster_data():
+    tif_path = DATA_DIR / "test_raster.tif"
+    with rasterio.open(tif_path) as src:
+        data = src.read(1)
+        transform = src.transform
+    return data, transform
+
+
+def test_process_from_raster_basic(h3_toolkit, raster_data):
+    data, transform = raster_data
+    result = h3_toolkit.process_from_raster(data=data, transform=transform, resolution=9)
+    assert isinstance(result, H3Toolkit)
+    output = result.get_result()
+    assert not output.is_empty()
+    assert "hex_id" in output.columns
+    assert "value" in output.columns
+
+
+def test_process_from_raster_custom_value_name(h3_toolkit, raster_data):
+    data, transform = raster_data
+    output = h3_toolkit.process_from_raster(
+        data=data, transform=transform, resolution=9, return_value_name="elevation"
+    ).get_result()
+    assert "elevation" in output.columns
+    assert "value" not in output.columns
+
+
+def test_process_from_raster_hex_id_format(h3_toolkit, raster_data):
+    data, transform = raster_data
+    output = h3_toolkit.process_from_raster(data=data, transform=transform, resolution=9).get_result()
+    assert output["hex_id"].dtype == pl.String
+    assert all(len(h) == 15 for h in output["hex_id"].to_list())
+
+
+def test_process_from_raster_nodata_excluded(h3_toolkit, raster_data):
+    data, transform = raster_data
+    nodata_val = float(data[0, 0])
+    output_with = h3_toolkit.process_from_raster(
+        data=data, transform=transform, resolution=9, nodata_value=nodata_val
+    ).get_result()
+    output_without = H3Toolkit().process_from_raster(data=data, transform=transform, resolution=9).get_result()
+    assert len(output_with) <= len(output_without)
+
+
+def test_process_from_raster_invalid_resolution(h3_toolkit, raster_data):
+    from h3_toolkit.exceptions import ResolutionRangeError
+
+    data, transform = raster_data
+    with pytest.raises(ResolutionRangeError):
+        h3_toolkit.process_from_raster(data=data, transform=transform, resolution=99)
