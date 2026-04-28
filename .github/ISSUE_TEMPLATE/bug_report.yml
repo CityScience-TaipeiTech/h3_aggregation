@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: h3-toolkit version
+      placeholder: "e.g. 0.3.15"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "e.g. 3.11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproducible example
+      description: A minimal code snippet that reproduces the issue.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error traceback
+      description: Paste the full error message if applicable.
+      render: text

@@ -1,0 +1,37 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please check that no existing issue covers this idea.
+        For large changes, we recommend discussing here before writing code.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve? What is your use case?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or behavior
+      description: If you have an idea of what the interface should look like, show it here.
+      render: python
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you considered or are currently using as a workaround?
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to contribute this feature?
+      options:
+        - label: Yes, I'd like to implement this and submit a PR
