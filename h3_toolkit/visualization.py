@@ -57,9 +57,9 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     """
     import math
 
-    import pyarrow as pa
-    from h3ronpy.arrow import cells_parse
-    from h3ronpy.pandas.vector import cells_bounds
+    import numpy as np
+    import pandas as pd
+    from h3ronpy.pandas.vector import cells_to_polygons
 
     default_view = {"longitude": 0, "latitude": 0, "zoom": 2, "pitch": 0, "bearing": 0}
 
@@ -67,15 +67,11 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
         return default_view
 
     try:
-        # Parse hex string cell IDs to uint64 array
-        str_array = pa.array(hex_ids, type=pa.utf8())
-        cells_array = cells_parse(str_array, set_failing_to_invalid=True)
-
-        # cells_bounds returns (min_lon, min_lat, max_lon, max_lat)
-        bounds = cells_bounds(cells_array)
-        if bounds is None:
+        cell_ints = pd.Series([int(c, 16) for c in hex_ids], dtype=np.uint64)
+        gdf = cells_to_polygons(cell_ints)
+        if gdf is None or gdf.empty:
             return default_view
-        min_lon, min_lat, max_lon, max_lat = bounds
+        min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
     except Exception:
         return default_view
 

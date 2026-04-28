@@ -2,7 +2,9 @@ import logging
 
 import geopandas as gpd
 import polars as pl
+import pyarrow as pa
 from h3ronpy import ContainmentMode as Cont
+from h3ronpy.vector import wkb_to_cells as _h3_wkb_to_cells
 from shapely import to_wkb
 
 
@@ -52,31 +54,27 @@ def wkb_to_cells(
         raise ValueError(f"Column '{geom_col}' not found in the input DataFrame, \
                          please use `set_geometry()` to set the geometry column first")
 
-    # TODO: use lazyframe instaed of eagerframe?
-    return df.with_columns(
-        pl.col(geom_col)
-        .custom.custom_wkb_to_cells(resolution=resolution, containment_mode=mode, compact=False, flatten=False)
-        .alias("cell"),
-        # pl.col(selected_cols) if selected_cols else pl.exclude(geom_col)
-    ).explode("cell")
+    collected = df.collect() if hasattr(df, "collect") else df
+    wkb_pyarrow = collected[geom_col].to_arrow().cast(pa.large_binary())
+    cells_arro3 = _h3_wkb_to_cells(
+        wkb_pyarrow, resolution=resolution, containment_mode=mode, compact=False, flatten=False
+    )
+    cells_pa = pa.chunked_array([pa.array(cells_arro3.to_pylist(), type=pa.list_(pa.uint64()))])
+    return collected.with_columns(pl.from_arrow(cells_pa).alias("cell")).explode("cell").lazy()
 
 
 def cell_to_geom(df: pl.DataFrame) -> gpd.GeoDataFrame:
     """
     convert h3 cells to geometry
     """
-    return gpd.GeoDataFrame(
-        df.select(
-            pl.all(),  # keep all columns including hex_id
-            pl.col("hex_id")
-            .h3.cells_parse()
-            .custom.custom_cells_to_wkb_polygons()
-            .custom.custom_from_wkb()
-            .alias("geometry"),
-        ).to_pandas(),
-        geometry="geometry",
-        crs="epsg:4326",
-    )
+    import h3ronpy.polars  # noqa: F401
+    from h3ronpy.vector import cells_to_wkb_polygons as _cells_to_wkb
+    from shapely import from_wkb as _from_wkb
+
+    cells = df["hex_id"].h3.cells_parse()
+    wkb_arr = _cells_to_wkb(pa.chunked_array([pa.array(cells.to_list(), type=pa.uint64())]))
+    geoms = _from_wkb([bytes(b) if b is not None else None for b in wkb_arr.to_pylist()])
+    return gpd.GeoDataFrame(df.to_pandas(), geometry=list(geoms), crs="epsg:4326")
 
 
 def setup_default_logger(logger_name: str, level=logging.WARNING):

@@ -29,15 +29,13 @@ class EqualSplit(AggregationStrategy):
     def apply(self, data: pl.LazyFrame, target_cols: list[str]) -> pl.LazyFrame:
         return data.with_columns(
             [
-                # first / count over agg_col (usually a boundary identifier)
-                ((pl.first(col).over(self.agg_col)) / (pl.count(col).over(self.agg_col))).alias(
-                    col
-                )  # overwrite the original column
+                (
+                    (pl.col(col).cast(pl.Float64).first().over(self.agg_col))
+                    / (pl.col(col).count().over(self.agg_col).cast(pl.Float64))
+                ).alias(col)
                 for col in target_cols
             ]
-        ).select(  # only keep the necessary columns
-            pl.col("cell"), pl.col(target_cols)
-        )
+        ).select(pl.col("cell"), pl.col(target_cols))
 
 
 class SplitEqually(EqualSplit):

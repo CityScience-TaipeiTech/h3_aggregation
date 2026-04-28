@@ -6,7 +6,7 @@ from datetime import datetime
 import geopandas as gpd
 import h3ronpy.polars  # noqa: F401
 import polars as pl
-from h3ronpy.polars.raster import raster_to_dataframe
+from h3ronpy.raster import raster_to_dataframe
 
 from .aggregation import AggregationStrategy
 from .exceptions import (
@@ -124,18 +124,15 @@ class H3Toolkit:
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Start converting data to h3 cells in resolution {self.source_resolution}"
         )
 
-        self.result = (
+        intermediate = (
             self.raw_data.lazy()
             .pipe(wkb_to_cells, self.source_resolution, geometry_col)
-            .pipe(self._apply_strategy)  # apply the aggregation strategy
-            .select(
-                # Convert the cell(unit64) to string
-                pl.col("cell").h3.cells_to_string().alias("hex_id"),
-                # only select the columns set in the aggregation strategies
-                # pl.col(selected_cols)
-                pl.all().exclude(["cell", geometry_col]),
-            )
-            .collect(streaming=True)
+            .pipe(self._apply_strategy)
+            .select(pl.col("cell"), pl.all().exclude(["cell", geometry_col]))
+            .collect()
+        )
+        self.result = intermediate.with_columns(intermediate["cell"].h3.cells_to_string().alias("hex_id")).select(
+            pl.col("hex_id"), pl.all().exclude(["cell", "hex_id"])
         )
 
         # Potential hex_id loss: check if there is any null value in the hex_id column
@@ -191,7 +188,7 @@ class H3Toolkit:
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Start converting data to h3 cells in resolution {self.source_resolution}"
         )
-        self.raw_data = raster_to_dataframe(
+        raw = raster_to_dataframe(
             in_raster=data,
             transform=transform,
             h3_resolution=resolution,
@@ -199,14 +196,11 @@ class H3Toolkit:
             compact=False,
             # geo = False,
         )
+        self.raw_data = pl.from_arrow(raw) if not isinstance(raw, pl.DataFrame) else raw
 
-        self.result = (
-            self.raw_data.lazy()
-            .select(
-                pl.col("cell").h3.cells_to_string().alias("hex_id"),
-                pl.col("value").alias(return_value_name),
-            )
-            .collect(streaming=True)
+        self.result = self.raw_data.with_columns(self.raw_data["cell"].h3.cells_to_string().alias("hex_id")).select(
+            pl.col("hex_id"),
+            pl.col("value").alias(return_value_name),
         )
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}"
@@ -309,19 +303,20 @@ class H3Toolkit:
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Start converting data to h3 cells in resolution {self.target_resolution}"
         )
-        self.result = (
-            self.result.lazy()
-            .drop_nulls(subset=[h3_col])  # 沒有h3 index的row就直接刪掉
-            .with_columns(
-                # 根據h3_col做resolution的轉換
-                pl.col(h3_col).h3.cells_parse().h3.change_resolution(self.target_resolution).alias("cell")
-            )
+
+        intermediate = self.result.lazy().drop_nulls(subset=[h3_col]).collect()
+        intermediate = intermediate.with_columns(
+            intermediate[h3_col].h3.cells_parse().h3.change_resolution(self.target_resolution).alias("cell")
+        )
+        intermediate = (
+            intermediate.lazy()
             .pipe(self._apply_strategy)
             .select(pl.all().exclude(h3_col))
-            .select(pl.col("cell").h3.cells_to_string().alias(h3_col), pl.exclude("cell"))
-            # can't have duplicate hex_id in the result
-            .unique(subset=[h3_col])
-            .collect(streaming=True)
+            .collect()
+            .unique(subset=["cell"])
+        )
+        self.result = intermediate.with_columns(intermediate["cell"].h3.cells_to_string().alias(h3_col)).select(
+            pl.col(h3_col), pl.all().exclude(["cell", h3_col])
         )
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Finish converting data to h3 cells in resolution {self.target_resolution} with shape {self.result.shape}"

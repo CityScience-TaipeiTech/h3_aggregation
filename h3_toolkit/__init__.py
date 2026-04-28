@@ -11,8 +11,8 @@ With H3Toolkit, you only need to create an instance of the H3Toolkit class and c
 
 import polars as pl
 from h3ronpy import ContainmentMode as Cont
-from h3ronpy.polars.raster import raster_to_dataframe
-from h3ronpy.polars.vector import cells_to_wkb_polygons, wkb_to_cells
+from h3ronpy.raster import raster_to_dataframe
+from h3ronpy.vector import cells_to_wkb_polygons, wkb_to_cells
 from shapely import from_wkb
 
 from .core import H3Toolkit
