@@ -6,15 +6,27 @@ Thank you for your interest in contributing to h3-toolkit! This document outline
 
 ## Table of Contents
 
-- [Ways to Contribute](#ways-to-contribute)
-- [Design Philosophy](#design-philosophy)
-- [Before You Start: Open an Issue First](#before-you-start-open-an-issue-first)
-- [Development Setup](#development-setup)
-- [Branching and Workflow](#branching-and-workflow)
-- [Code Style](#code-style)
-- [Testing](#testing)
-- [Submitting a Pull Request](#submitting-a-pull-request)
-- [What We Are and Are Not Looking For](#what-we-are-and-are-not-looking-for)
+- [Contributing to h3-toolkit](#contributing-to-h3-toolkit)
+  - [Table of Contents](#table-of-contents)
+  - [Ways to Contribute](#ways-to-contribute)
+  - [Design Philosophy](#design-philosophy)
+  - [Before You Start: Open an Issue First](#before-you-start-open-an-issue-first)
+  - [Development Setup](#development-setup)
+    - [1. Fork and clone](#1-fork-and-clone)
+    - [2. Install dependencies](#2-install-dependencies)
+    - [3. Set up pre-commit hooks](#3-set-up-pre-commit-hooks)
+    - [4. Verify your setup](#4-verify-your-setup)
+  - [Branching and Workflow](#branching-and-workflow)
+    - [Branch naming](#branch-naming)
+    - [Commit messages](#commit-messages)
+  - [Code Style](#code-style)
+  - [Testing](#testing)
+    - [Guidelines](#guidelines)
+  - [Submitting a Pull Request](#submitting-a-pull-request)
+    - [PR merge criteria](#pr-merge-criteria)
+  - [What We Are and Are Not Looking For](#what-we-are-and-are-not-looking-for)
+    - [In scope](#in-scope)
+    - [Out of scope (for now)](#out-of-scope-for-now)
 
 ---
 
@@ -102,7 +114,7 @@ All tests should pass before you make any changes.
 
 ### Branch naming
 
-Create a new branch from `master` for your work. Use the following naming convention:
+Create a new branch from `main` for your work. Use the following naming convention:
 
 | Type | Format | Example |
 |------|--------|---------|
@@ -150,12 +162,6 @@ ruff format .
 
 Pre-commit will also run this automatically on each commit. If a commit is blocked by a pre-commit hook, fix the reported issues and re-stage your changes.
 
-Type annotations are encouraged. We use [mypy](https://mypy-lang.org/) for static type checking:
-
-```bash
-mypy h3_toolkit/
-```
-
 ---
 
 ## Testing
@@ -185,7 +191,7 @@ pytest tests/ --cov=h3_toolkit
    git push origin feat/weighted-mean-aggregation
    ```
 
-2. Open a Pull Request against the `master` branch of the main repository.
+2. Open a Pull Request against the `main` branch of the main repository.
 
 3. Fill out the PR description with:
    - **What** this PR does
@@ -208,14 +214,13 @@ pytest tests/ --cov=h3_toolkit
 
 ### In scope
 
-- New aggregation strategies (e.g., `WeightedMean`, `WeightedSplit`) with clear use cases
+- New aggregation strategies with clear use cases
 - Performance improvements to the aggregation pipeline using Polars expressions
 - Improved documentation and examples
 - Bug fixes with regression tests
 
 ### Out of scope (for now)
 
-- Support for non-Polars data formats (pandas DataFrames, etc.) in the core API
 - Multi-resolution geometry support (e.g., census block geometries) — this is better maintained as a separate interoperable package
 - Breaking changes to the public `H3Toolkit` API without prior discussion
 

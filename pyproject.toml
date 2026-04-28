@@ -1,9 +1,19 @@
 [tool.poetry]
 name = "h3-toolkit"
 version = "0.3.15"
-description = ""
+description = "A toolkit for aggregating and visualizing geospatial data using H3 hexagonal grids"
+license = "MIT"
 authors = ["Huang SyuanBo <godspeed88168@gmail.com>"]
 readme = "README.md"
+homepage = "https://github.com/CityScience-TaipeiTech/H3-ToolKits"
+repository = "https://github.com/CityScience-TaipeiTech/H3-ToolKits"
+keywords = ["h3", "geospatial", "polars", "hexagon", "aggregation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: GIS",
+]
 
 [tool.poetry.dependencies]
 python = "^3.10.12"
@@ -53,6 +63,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff] # https://docs.astral.sh/ruff/settings/#top-level
 line-length = 120
+exclude = ["docs/"]
 
 [tool.ruff.lint] # https://docs.astral.sh/ruff/settings/#lint
 select = [
