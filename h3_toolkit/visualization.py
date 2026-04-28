@@ -20,12 +20,12 @@ def _check_dependencies() -> None:
     try:
         import pydeck  # noqa: F401
     except ImportError:
-        missing.append('pydeck')
+        missing.append("pydeck")
 
     try:
         import mapclassify  # noqa: F401
     except ImportError:
-        missing.append('mapclassify')
+        missing.append("mapclassify")
 
     if missing:
         raise ImportError(
@@ -56,6 +56,7 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
         Dictionary with ViewState: longitude, latitude, zoom, pitch, bearing.
     """
     import math
+
     import pyarrow as pa
     from h3ronpy.arrow import cells_parse
     from h3ronpy.pandas.vector import cells_bounds
@@ -97,21 +98,15 @@ def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     # zooming down to individual cell/street level on small extents
     zoom = max(0, min(14, zoom))
 
-    return {
-        "longitude": center_lon,
-        "latitude": center_lat,
-        "zoom": zoom,
-        "pitch": 0,
-        "bearing": 0
-    }
+    return {"longitude": center_lon, "latitude": center_lat, "zoom": zoom, "pitch": 0, "bearing": 0}
 
 
 def _set_color(
     data: pl.DataFrame,
     target_col: str,
-    classifier: str = 'NaturalBreaks',
+    classifier: str = "NaturalBreaks",
     k: int = 5,
-    cmap: str = 'Oranges',
+    cmap: str = "Oranges",
 ) -> pl.DataFrame:
     """
     Add color column to data based on classification.
@@ -161,8 +156,7 @@ def _set_color(
         cmap_obj = colormaps[cmap]
     except KeyError:
         raise ValueError(
-            f"Unknown colormap '{cmap}'. "
-            f"See https://matplotlib.org/stable/users/explain/colors/colormaps.html"
+            f"Unknown colormap '{cmap}'. " f"See https://matplotlib.org/stable/users/explain/colors/colormaps.html"
         )
 
     # Map each bin to a color
@@ -178,9 +172,7 @@ def _set_color(
 
     # Add color column back to original data
     result = data.clone()
-    result = result.with_columns(
-        pl.Series('color', colors)
-    )
+    result = result.with_columns(pl.Series("color", colors))
 
     return result
 
@@ -188,12 +180,12 @@ def _set_color(
 def show_h3(
     data: pl.DataFrame,
     target_col: str,
-    h3_col: str = 'hex_id',
-    classifier: str = 'NaturalBreaks',
+    h3_col: str = "hex_id",
+    classifier: str = "NaturalBreaks",
     k: int = 5,
-    cmap: str = 'Oranges',
+    cmap: str = "Oranges",
     save_to: Optional[str] = None,
-    **pydeck_kwargs
+    **pydeck_kwargs,
 ):
     """
     Visualize H3 hexagon data with pydeck.
@@ -232,13 +224,7 @@ def show_h3(
         raise ValueError(f"k must be >= 2, got {k}")
 
     # Add colors to data
-    data_with_colors = _set_color(
-        data,
-        target_col,
-        classifier=classifier,
-        k=k,
-        cmap=cmap
-    )
+    data_with_colors = _set_color(data, target_col, classifier=classifier, k=k, cmap=cmap)
 
     # Convert to dict format for pydeck
     data_dict = data_with_colors.to_dicts()
@@ -249,9 +235,9 @@ def show_h3(
 
     # Create H3 hexagon layer
     layer = pdk.Layer(
-        'H3HexagonLayer',
+        "H3HexagonLayer",
         data_dict,
-        get_fill_color='color',
+        get_fill_color="color",
         get_hexagon=h3_col,
         pickable=True,
         opacity=0.4,
@@ -265,7 +251,7 @@ def show_h3(
         layers=[layer],
         initial_view_state=pdk.ViewState(**view_state),
         tooltip={"text": f"{target_col}: {{{target_col}}}"},
-        **pydeck_kwargs
+        **pydeck_kwargs,
     )
 
     # Save or return

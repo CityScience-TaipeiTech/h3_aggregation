@@ -32,4 +32,4 @@ Get started with h3-toolkit to enhance your geospatial data processing and make 
    api/modules
    usage/index
 
-.. Installation <>   
+.. Installation <>

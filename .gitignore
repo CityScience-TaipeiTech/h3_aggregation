@@ -35,3 +35,6 @@ data_for_display.py
 
 /.ruff_cache
 /.pytest_cache
+
+
+/graphify-out/

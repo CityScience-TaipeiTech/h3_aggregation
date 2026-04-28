@@ -19,7 +19,7 @@ class HBaseClient:
     This client supports fetching and sending data to HBase via URLs and controls the
     maximum number of concurrent requests and the chunk size per request to ensure
     efficient data processing and transmission.
-    
+
     Note:
         - The `semaphore` attribute is used to limit the concurrency of requests to the HBase server, ensuring the client adheres to the server's request limits.
         - The `chunk_size` determines the number of row keys processed per request, which helps balance between performance and server load.
@@ -49,14 +49,16 @@ class HBaseClient:
         >>>                      chunk_size=200000)
         >>> # Fetch and send data using the client
 
-    """ # noqa
-    def __init__(self,
-                 fetch_url:str,
-                 send_url:str,
-                 token:str,
-                 max_concurrent_requests:int=5,
-                 chunk_size:int=200000,
-                ):
+    """  # noqa
+
+    def __init__(
+        self,
+        fetch_url: str,
+        send_url: str,
+        token: str,
+        max_concurrent_requests: int = 5,
+        chunk_size: int = 200000,
+    ):
         self.fetch_url = fetch_url
         self.send_url = send_url
         self.token = token
@@ -71,7 +73,7 @@ class HBaseClient:
         User-friendly representation of the HBaseClient instance when printed.
         """
         return f"HBaseClient(\n fetch_url = {self.fetch_url}, \n send_url = {self.send_url}, \n token = {self._obfuscate_token(self.token)}, \
-            \n max_concurrent_requests = {self.max_concurrent_requests}, \n chunk_size = {self.chunk_size}\n)" #noqa
+            \n max_concurrent_requests = {self.max_concurrent_requests}, \n chunk_size = {self.chunk_size}\n)"  # noqa
 
     def _obfuscate_token(self, token):
         """
@@ -79,15 +81,14 @@ class HBaseClient:
         """
         return f"{token[:5]}{'*' * (len(token)-10)}{token[-5:]}"
 
-
     async def _fetch_data(self, session, form_data):
         async with self.semaphore:
             try:
                 async with session.post(
                     self.fetch_url,
                     data=form_data,
-                    headers = {"Authorization": f"Bearer {self.token}"},
-                    raise_for_status = True # 有任何不是200的response都會raise exception
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    raise_for_status=True,  # 有任何不是200的response都會raise exception
                 ) as response:
                     response_text = await response.json()
                     # self.logger.info("Successfully fetch data")
@@ -119,12 +120,12 @@ class HBaseClient:
         total_chunks = len(rowkeys) // self.chunk_size + 1
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
-            with tqdm(total=total_chunks, desc="Fetching data from Hbase ... ", unit='chunk') as pbar: # noqa
+            with tqdm(total=total_chunks, desc="Fetching data from Hbase ... ", unit="chunk") as pbar:  # noqa
                 for start in range(0, len(rowkeys), self.chunk_size):
                     form_data = {
                         "tablename": table_name,
-                        "rowkey": json.dumps(rowkeys[start:start + self.chunk_size]),
-                        "column_qualifiers": json.dumps({cf: cq_list})
+                        "rowkey": json.dumps(rowkeys[start : start + self.chunk_size]),
+                        "column_qualifiers": json.dumps({cf: cq_list}),
                     }
                     if timerange:
                         form_data["timerange"] = f"{timerange[0]}~{timerange[1]}"
@@ -139,9 +140,7 @@ class HBaseClient:
                 end = min(start + self.chunk_size, len(rowkeys))
 
                 if not response:
-                    self.logger.warning(
-                        f"Some rowkeys in input range {start}-{end} did not return data"
-                    )
+                    self.logger.warning(f"Some rowkeys in input range {start}-{end} did not return data")
                 else:
                     for key in response.keys():
                         dfs.append(pl.DataFrame(response[key]))
@@ -149,7 +148,7 @@ class HBaseClient:
             if not dfs:
                 raise ValueError("No data fetched from HBase, please check the input parameters")
 
-            return pl.concat(dfs, how='vertical')
+            return pl.concat(dfs, how="vertical")
 
     # async def _fetch_data_chunks(self, session, table_name, cf, cq_list, rowkeys):
     #     for start in range(0, len(rowkeys), self.chunk_size):
@@ -178,15 +177,14 @@ class HBaseClient:
     #         gc.collect()
     #         return result_df
 
-
     async def _send_data(self, session, result):
         async with self.semaphore:
             try:
                 async with session.post(
                     self.send_url,
                     json=result,
-                    headers = {"Authorization": f"Bearer {self.token}"},
-                    raise_for_status = True  # 有任何不是200的response都會raise exception
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    raise_for_status=True,  # 有任何不是200的response都會raise exception
                 ) as response:
                     _ = await response.text()
                     # self.logger.info(f"Successfully sent data: {response_text}")
@@ -218,7 +216,7 @@ class HBaseClient:
         total_chunks = data.shape[0] // self.chunk_size + 1
         async with aiohttp.ClientSession(trust_env=True) as session:
             tasks = []
-            with tqdm(total=total_chunks, desc="Sending data to Hbase ... ", unit='chunk') as pbar:
+            with tqdm(total=total_chunks, desc="Sending data to Hbase ... ", unit="chunk") as pbar:
                 for start in range(0, len(data), self.chunk_size):
                     chunk = data.slice(start, self.chunk_size)
                     result = {
@@ -226,12 +224,14 @@ class HBaseClient:
                             {
                                 "rowkey": row[rowkey_col],
                                 "datas": {
-                                    cf: { cq: str(row[cq]) for cq in cq_list if row[cq] is not None}, # noqa
-                                }
-                            } for row in chunk.iter_rows(named=True) if row[rowkey_col] is not None
+                                    cf: {cq: str(row[cq]) for cq in cq_list if row[cq] is not None},  # noqa
+                                },
+                            }
+                            for row in chunk.iter_rows(named=True)
+                            if row[rowkey_col] is not None
                         ],
                         "tablename": f"{table_name}",
-                        "timestamp": timestamp if timestamp else ""
+                        "timestamp": timestamp if timestamp else "",
                     }
                     tasks.append(self._send_data_with_retry(session, result))
                     pbar.update(1)
@@ -269,36 +269,32 @@ class HBaseClient:
     #         gc.collect()
 
     # NOTICE: NOT TEST YET
-    async def afetch_data(self,
-                table_name:str,
-                column_family:str,
-                column_qualifier:list[str],
-                rowkeys:list[str],
-                timerange: tuple[str, str] = None):
-        """This coroutine is used by afetch_from_hbase
-        """
-        result = await self._fetch_data_main(
-                table_name, column_family, column_qualifier, rowkeys, timerange
-            )
+    async def afetch_data(
+        self,
+        table_name: str,
+        column_family: str,
+        column_qualifier: list[str],
+        rowkeys: list[str],
+        timerange: tuple[str, str] = None,
+    ):
+        """This coroutine is used by afetch_from_hbase"""
+        result = await self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys, timerange)
         result = (
-            result
-            .unnest('properties')
+            result.unnest("properties")
             .pivot(index="row", values="value", on="qualifier")
-            .select(
-                pl.col("row").alias("hex_id"),
-                pl.exclude("row")
-            )
+            .select(pl.col("row").alias("hex_id"), pl.exclude("row"))
         )
 
         return result
 
-    def fetch_data(self,
-                table_name:str,
-                column_family:str,
-                column_qualifier:list[str],
-                rowkeys:list[str],
-                timerange: tuple[str, str] = None
-        )->pl.DataFrame:
+    def fetch_data(
+        self,
+        table_name: str,
+        column_family: str,
+        column_qualifier: list[str],
+        rowkeys: list[str],
+        timerange: tuple[str, str] = None,
+    ) -> pl.DataFrame:
         """Starting a new event loop to fetch data from HBase in async mode. \
         NOTICE: This function can't fit with fastapi, because it will start a new event loop. \
         If you want to use this function in fastapi, you should use the async function `afetch_data`
@@ -321,7 +317,9 @@ class HBaseClient:
         #     )
         # )
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase"
+        )  # noqa: E501
 
         coro = self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys, timerange)
         try:
@@ -337,31 +335,25 @@ class HBaseClient:
             result = asyncio.run(coro)
 
         result = (
-            result
-            .unnest('properties')
-            .pivot(
-                index=["row", "timestamp"],
-                values="value",
-                on="qualifier"
-            )
-            .select(
-                pl.col("row").alias("hex_id"),
-                pl.col("timestamp"),
-                pl.exclude("row", "timestamp")
-            )
+            result.unnest("properties")
+            .pivot(index=["row", "timestamp"], values="value", on="qualifier")
+            .select(pl.col("row").alias("hex_id"), pl.col("timestamp"), pl.exclude("row", "timestamp"))
         )
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Finish fetching data from HBase") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Finish fetching data from HBase"
+        )  # noqa: E501
 
         return result
 
-    def send_data(self,
-                data:pl.DataFrame,
-                table_name:str,
-                column_family:str,
-                column_qualifier:list[str],
-                rowkey_col="hex_id",
-                timestamp=None
-        ) -> None:
+    def send_data(
+        self,
+        data: pl.DataFrame,
+        table_name: str,
+        column_family: str,
+        column_qualifier: list[str],
+        rowkey_col="hex_id",
+        timestamp=None,
+    ) -> None:
         """
         Args:
             rowkey_col: str, the column name of rowkey, default is "hex_id"
@@ -372,9 +364,11 @@ class HBaseClient:
         #     data, table_name, column_family, column_qualifier, rowkey_col, timestamp
         # ))
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Start sending data from HBase") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Start sending data from HBase"
+        )  # noqa: E501
 
-        coro = self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp) # noqa: E501
+        coro = self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp)  # noqa: E501
         try:
             asyncio.get_running_loop()
             # A running event loop exists (e.g., Jupyter Notebook).
@@ -383,11 +377,14 @@ class HBaseClient:
         except RuntimeError:
             asyncio.run(coro)
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Finish sending data from HBase") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Finish sending data from HBase"
+        )  # noqa: E501
         del data
         gc.collect()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     client = HBaseClient()
 
     # Example for Get data
@@ -398,9 +395,5 @@ if __name__ == '__main__':
     data = client.fetch_data(table_name, cf, cq_list, rowkeys)
 
     # Example for Put data
-    data_to_put = pl.DataFrame({
-        "rowkey": ["row1", "row2"],
-        "cq1": [1, 2],
-        "cq2": [3, 4]
-    })
+    data_to_put = pl.DataFrame({"rowkey": ["row1", "row2"], "cq1": [1, 2], "cq2": [3, 4]})
     client.send_data(data_to_put, table_name, cf, cq_list, "rowkey")

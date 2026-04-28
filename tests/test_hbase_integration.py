@@ -9,39 +9,37 @@ Environment variables:
     HBASE_TOKEN: Authentication token for HBase
 """
 
-import json
 import os
 from pathlib import Path
 
-import pytest
 import polars as pl
+import pytest
 
 from h3_toolkit.hbase import HBaseClient
 
-
 # ==================== HBase Query Configuration ====================
 # Modify these variables to change what data the tests query
-HBASE_TABLE_NAME = 'res_10_time_data'
-HBASE_COLUMN_FAMILY = 'segis_population_statistic'
-HBASE_COLUMN_QUALIFIERS = ['p_cnt']
-HBASE_TIMERANGE_START = '2020-01-01'
-HBASE_TIMERANGE_END = '2024-12-31'
+HBASE_TABLE_NAME = "res_10_time_data"
+HBASE_COLUMN_FAMILY = "segis_population_statistic"
+HBASE_COLUMN_QUALIFIERS = ["p_cnt"]
+HBASE_TIMERANGE_START = "2020-01-01"
+HBASE_TIMERANGE_END = "2024-12-31"
 # ===================================================================
 
 
 @pytest.fixture
 def hbase_config():
     """Get HBase configuration from environment variables."""
-    fetch_url = os.getenv('HBASE_FETCH_API')
-    token = os.getenv('HBASE_TOKEN')
+    fetch_url = os.getenv("HBASE_FETCH_API")
+    token = os.getenv("HBASE_TOKEN")
 
     if not fetch_url or not token:
         pytest.skip("HBASE_FETCH_API and HBASE_TOKEN environment variables not set")
 
     return {
-        'fetch_url': fetch_url,
-        'send_url': None,  # Not used for fetch-only tests
-        'token': token
+        "fetch_url": fetch_url,
+        "send_url": None,  # Not used for fetch-only tests
+        "token": token,
     }
 
 
@@ -49,20 +47,20 @@ def hbase_config():
 def hbase_client(hbase_config):
     """Create an HBaseClient instance with real backend."""
     return HBaseClient(
-        fetch_url=hbase_config['fetch_url'],
-        send_url=hbase_config['send_url'] or hbase_config['fetch_url'],
-        token=hbase_config['token'],
+        fetch_url=hbase_config["fetch_url"],
+        send_url=hbase_config["send_url"] or hbase_config["fetch_url"],
+        token=hbase_config["token"],
         max_concurrent_requests=5,
-        chunk_size=100
+        chunk_size=100,
     )
 
 
 @pytest.fixture
 def test_hex_ids():
     """Load hex IDs from test data CSV file."""
-    test_data_path = Path(__file__).parent / 'data' / 'test_resolution_10.csv'
+    test_data_path = Path(__file__).parent / "data" / "test_resolution_10.csv"
     df = pl.read_csv(test_data_path)
-    return df['hex_id'].to_list()
+    return df["hex_id"].to_list()
 
 
 class TestHBaseIntegration:
@@ -84,7 +82,7 @@ class TestHBaseIntegration:
             column_family=HBASE_COLUMN_FAMILY,
             column_qualifier=HBASE_COLUMN_QUALIFIERS,
             rowkeys=test_hex_ids,
-            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
+            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END),
         )
 
         # Verify result is a valid DataFrame
@@ -92,7 +90,7 @@ class TestHBaseIntegration:
         assert not result.is_empty()
 
         # Verify expected columns are present
-        assert 'hex_id' in result.columns
+        assert "hex_id" in result.columns
         for col_qual in HBASE_COLUMN_QUALIFIERS:
             assert col_qual in result.columns
 
@@ -111,15 +109,15 @@ class TestHBaseIntegration:
             table_name=HBASE_TABLE_NAME,
             column_family=HBASE_COLUMN_FAMILY,
             column_qualifier=HBASE_COLUMN_QUALIFIERS,
-            rowkeys=test_hex_ids[:5]  # Use first 5 hex IDs for quick test
+            rowkeys=test_hex_ids[:5],  # Use first 5 hex IDs for quick test
         )
 
         # Verify result
         assert isinstance(result, pl.DataFrame)
         assert not result.is_empty()
-        assert 'hex_id' in result.columns
+        assert "hex_id" in result.columns
 
-        print(f"\n✅ Fetch without timerange successful!")
+        print("\n✅ Fetch without timerange successful!")
         print(f"Rows returned: {len(result)}")
         print(result.head())
 
@@ -135,11 +133,11 @@ class TestHBaseIntegration:
             column_family=HBASE_COLUMN_FAMILY,
             column_qualifier=HBASE_COLUMN_QUALIFIERS,
             rowkeys=hex_ids_subset,
-            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
+            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END),
         )
 
         assert isinstance(result, pl.DataFrame)
-        print(f"\n✅ Small subset test passed!")
+        print("\n✅ Small subset test passed!")
         print(f"Queried {len(hex_ids_subset)} hex IDs")
         print(f"Returned {len(result)} rows")
         if not result.is_empty():
@@ -158,11 +156,11 @@ class TestHBaseIntegration:
                 column_family=HBASE_COLUMN_FAMILY,
                 column_qualifier=HBASE_COLUMN_QUALIFIERS,  # Add more qualifiers if available
                 rowkeys=test_hex_ids[:10],
-                timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
+                timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END),
             )
 
             assert isinstance(result, pl.DataFrame)
-            print(f"\n✅ Multi-column fetch successful!")
+            print("\n✅ Multi-column fetch successful!")
             print(f"Columns returned: {result.columns}")
         except Exception as e:
             print(f"\n⚠️ Multi-column fetch failed: {str(e)}")
@@ -173,13 +171,13 @@ class TestHBaseIntegration:
         client_str = repr(hbase_client)
 
         # Should contain fetch_url
-        assert 'fetch_url' in client_str
+        assert "fetch_url" in client_str
         # Token should be obfuscated
-        assert '*' in client_str
+        assert "*" in client_str
         # Should not contain full token
-        assert 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' not in client_str
+        assert "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" not in client_str
 
-        print(f"\n✅ Client repr test passed!")
+        print("\n✅ Client repr test passed!")
         print(client_str)
 
 
@@ -195,17 +193,17 @@ class TestHBaseDataAnalysis:
             column_family=HBASE_COLUMN_FAMILY,
             column_qualifier=HBASE_COLUMN_QUALIFIERS,
             rowkeys=test_hex_ids,
-            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
+            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END),
         )
 
         if not result.is_empty():
             stats = result.select(pl.col(HBASE_COLUMN_QUALIFIERS[0]).cast(pl.Float64)).describe()
 
-            print(f"\n✅ Data statistics:")
+            print("\n✅ Data statistics:")
             print(stats)
 
             # Verify data types
-            assert result['hex_id'].dtype == pl.String
+            assert result["hex_id"].dtype == pl.String
             print(f"\nhex_id column type: {result['hex_id'].dtype}")
             print(f"{HBASE_COLUMN_QUALIFIERS[0]} column type: {result[HBASE_COLUMN_QUALIFIERS[0]].dtype}")
 
@@ -218,14 +216,14 @@ class TestHBaseDataAnalysis:
             column_family=HBASE_COLUMN_FAMILY,
             column_qualifier=HBASE_COLUMN_QUALIFIERS,
             rowkeys=test_hex_ids,
-            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END)
+            timerange=(HBASE_TIMERANGE_START, HBASE_TIMERANGE_END),
         )
 
         # Calculate coverage: how many unique hex_ids have at least one row
-        unique_hex_ids_with_data = result['hex_id'].n_unique()
+        unique_hex_ids_with_data = result["hex_id"].n_unique()
         coverage = unique_hex_ids_with_data / len(test_hex_ids) * 100
 
-        print(f"\n✅ Data coverage:")
+        print("\n✅ Data coverage:")
         print(f"Total hex IDs queried: {len(test_hex_ids)}")
         print(f"Unique hex IDs with data: {unique_hex_ids_with_data}")
         print(f"Total rows (with time dimension): {len(result)}")
@@ -237,5 +235,5 @@ class TestHBaseDataAnalysis:
 
         # Show sample of available data
         if not result.is_empty():
-            print(f"\nSample data:")
+            print("\nSample data:")
             print(result.head(10))

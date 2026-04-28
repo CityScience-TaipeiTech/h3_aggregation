@@ -1,7 +1,7 @@
 # H3-Toolkit 可視化模組整合設計
 
-**日期：** 2026-04-13  
-**作者：** Huang SyuanBo  
+**日期：** 2026-04-13
+**作者：** Huang SyuanBo
 **版本：** 1.0
 
 ---
@@ -103,9 +103,9 @@ def show(
 ) -> 'H3Toolkit':
     """
     可視化 H3 hexagon 數據層。
-    
+
     自動根據數據範圍計算地圖邊界和初始視圖狀態。支援多種分類方法和顏色映射。
-    
+
     Args:
         target_col (str):
             要著色的數據列名。
@@ -113,7 +113,7 @@ def show(
             H3 hexagon ID 列名。預設 'hex_id'。
         classifier (str, optional):
             mapclassify 分類方法名稱。預設 'NaturalBreaks'。
-            可用選項：'NaturalBreaks', 'EqualInterval', 'Quantiles', 
+            可用選項：'NaturalBreaks', 'EqualInterval', 'Quantiles',
             'StdMean', 'JenksNaturalBreaks', 'FisherJenks' 等。
             詳見：https://pysal.org/mapclassify/api.html
         k (int, optional):
@@ -127,37 +127,37 @@ def show(
             預設 None。
         **pydeck_kwargs:
             傳給 pdk.Deck() 的額外參數，如 map_style、pitch 等。
-    
+
     Returns:
         H3Toolkit: 返回自身，支援鏈式調用。
-    
+
     Raises:
         ValueError: 若 self.result 為空（未經過數據處理）或 k < 2。
         ImportError: 若缺少可視化依賴（pydeck, mapclassify）。
         ValueError: 若分類器名稱無效或顏色映射不存在。
-    
+
     Examples:
         >>> toolkit = H3Toolkit()
         >>> toolkit.process_from_vector(geo_df)
         >>> toolkit.fetch_from_hbase(...)
-        
+
         >>> # 使用預設 NaturalBreaks (k=5) 和 Oranges 顏色
         >>> toolkit.show('population_count')
-        
+
         >>> # 自訂分類方法和分類數
         >>> toolkit.show(
         ...     'population_count',
         ...     classifier='Quantiles',
         ...     k=7
         ... )
-        
+
         >>> # 自訂顏色映射
         >>> toolkit.show(
         ...     'population_count',
         ...     cmap='RdYlGn',
         ...     k=6
         ... )
-        
+
         >>> # 保存為 HTML 並自訂地圖樣式
         >>> toolkit.show(
         ...     'population_count',
@@ -186,7 +186,7 @@ def show_h3(
 ) -> pdk.Deck:
     """
     獨立的可視化函數，用於渲染 H3 hexagon 層。
-    
+
     Args:
         data (pl.DataFrame): 包含 H3 hexagon ID 和數值數據的 Polars DataFrame。
         target_col (str): 要著色的列名。
@@ -196,7 +196,7 @@ def show_h3(
         cmap (str, optional): matplotlib 顏色映射。預設 'Oranges'。
         save_to (str | None, optional): 保存 HTML 的路徑。若為 None 則返回 pdk.Deck。
         **pydeck_kwargs: 傳給 pdk.Deck 的參數。
-    
+
     Returns:
         pdk.Deck: pydeck Deck 對象，可直接在 Jupyter 中展示或保存。
     """
@@ -219,7 +219,7 @@ def _check_dependencies() -> None:
 def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     """
     根據 hex_ids 自動計算地圖邊界和初始視圖狀態。
-    
+
     返回 pydeck.ViewState 所需的字典：
     {
         "longitude": float,  # 地圖中心經度
@@ -240,14 +240,14 @@ def _set_color(
 ) -> pl.DataFrame:
     """
     使用指定的 mapclassify 分類方法和 matplotlib 顏色映射對數據著色。
-    
+
     Args:
         data: 輸入 DataFrame
         target_col: 要分類的列名
         classifier: mapclassify 分類器名稱（如 'NaturalBreaks', 'Quantiles'）
         k: 分類數量
         cmap: matplotlib 顏色映射名稱
-    
+
     Returns:
         添加 'color' 列的 DataFrame，值為 RGBA 四元組 [R, G, B, A]。
     """
@@ -265,7 +265,7 @@ def show_h3(
 ) -> pdk.Deck:
     """
     渲染 H3 hexagon 層並返回或保存 pdk.Deck。
-    
+
     實現流程：
     1. 檢查依賴
     2. 驗證參數（classifier 和 cmap 有效性，k >= 2）
@@ -287,12 +287,12 @@ def _check_dependencies():
         import pydeck
     except ImportError:
         missing.append('pydeck')
-    
+
     try:
         import mapclassify
     except ImportError:
         missing.append('mapclassify')
-    
+
     if missing:
         raise ImportError(
             f"Missing visualization dependencies: {', '.join(missing)}. "
@@ -323,34 +323,34 @@ def show_h3(...):
 ```python
 def _calculate_initial_view_state(hex_ids: list[str]) -> dict:
     import h3ronpy.polars
-    
+
     # 1. 獲取所有 hexagon 的邊界
     boundaries = []
     for hex_id in hex_ids:
         boundary = h3.cell_to_boundary(hex_id)  # 返回 [(lat, lon), ...]
         boundaries.extend(boundary)
-    
+
     # 2. 計算邊界框
     lats = [point[0] for point in boundaries]
     lons = [point[1] for point in boundaries]
-    
+
     min_lat, max_lat = min(lats), max(lats)
     min_lon, max_lon = min(lons), max(lons)
-    
+
     # 3. 計算中心點
     center_lat = (min_lat + max_lat) / 2
     center_lon = (min_lon + max_lon) / 2
-    
+
     # 4. 根據邊界計算縮放級別
     # 使用標準公式：zoom = log2(360 * 2^8 / (max_lon - min_lon))
     # 加上安全邊距（0.1 倍）
     lat_diff = max_lat - min_lat
     lon_diff = max_lon - min_lon
     max_diff = max(lat_diff, lon_diff) * 1.1
-    
+
     zoom = 8 - math.log2(max_diff / 360)
     zoom = max(0, min(20, zoom))  # 限制在 0-20 範圍
-    
+
     return {
         "longitude": center_lon,
         "latitude": center_lat,
@@ -476,7 +476,7 @@ show_h3(
 ### 7.1 缺少依賴時
 
 ```
-ImportError: Missing visualization dependencies: pydeck, mapclassify. 
+ImportError: Missing visualization dependencies: pydeck, mapclassify.
 Install with: pip install h3-toolkit[visualization]
 ```
 

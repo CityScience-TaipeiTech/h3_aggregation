@@ -52,7 +52,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff] # https://docs.astral.sh/ruff/settings/#top-level
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint] # https://docs.astral.sh/ruff/settings/#lint
 select = [
@@ -64,6 +64,7 @@ select = [
 ]
 ignore = [
     "E402",  # module level import not at top of file
+    "E501",  # line too long
 ]
 
 [tool.ruff.lint.pydocstyle]

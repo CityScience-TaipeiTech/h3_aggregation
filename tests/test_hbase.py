@@ -4,7 +4,7 @@ scripts and Jupyter Notebook environments (with or without running event loop).
 """
 
 import asyncio
-from unittest.mock import AsyncMock, patch, call
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,15 +19,15 @@ def hbase_client():
         send_url="http://localhost:8080/send",
         token="test-token-12345",
         max_concurrent_requests=2,
-        chunk_size=100
+        chunk_size=100,
     )
 
 
 class TestAsyncioRunDetection:
     """Test that fetch_data correctly detects running event loops."""
 
-    @patch('asyncio.run')
-    @patch('h3_toolkit.hbase.HBaseClient._fetch_data_main', new_callable=AsyncMock)
+    @patch("asyncio.run")
+    @patch("h3_toolkit.hbase.HBaseClient._fetch_data_main", new_callable=AsyncMock)
     def test_uses_asyncio_run_when_no_loop(self, mock_fetch, mock_run, hbase_client):
         """
         Test that fetch_data uses asyncio.run() when there's no running loop.
@@ -43,7 +43,7 @@ class TestAsyncioRunDetection:
                 table_name="test_table",
                 column_family="cf",
                 column_qualifier=["col1"],
-                rowkeys=["row1"]
+                rowkeys=["row1"],
             )
 
         # Assert: asyncio.run was called (not ThreadPoolExecutor)
@@ -59,8 +59,8 @@ class TestAsyncioRunDetection:
         call_info = {"used_thread_executor": False}
 
         # We'll patch concurrent.futures.ThreadPoolExecutor to verify it's used
-        with patch('h3_toolkit.hbase.concurrent.futures.ThreadPoolExecutor') as mock_executor_class:
-            with patch.object(hbase_client, '_fetch_data_main', new_callable=AsyncMock) as mock_fetch:
+        with patch("h3_toolkit.hbase.concurrent.futures.ThreadPoolExecutor") as mock_executor_class:
+            with patch.object(hbase_client, "_fetch_data_main", new_callable=AsyncMock) as _:
                 # Setup mock executor
                 mock_executor = AsyncMock()
                 mock_executor.__enter__ = AsyncMock(return_value=mock_executor)
@@ -84,7 +84,7 @@ class TestAsyncioRunDetection:
                             table_name="test_table",
                             column_family="cf",
                             column_qualifier=["col1"],
-                            rowkeys=["row1"]
+                            rowkeys=["row1"],
                         )
                     except (ValueError, Exception):
                         pass  # We expect it to fail, we just want to see if executor was used
@@ -103,8 +103,8 @@ class TestAsyncioRunDetection:
 class TestSendDataAsyncioHandling:
     """Test send_data async/sync handling."""
 
-    @patch('asyncio.run')
-    @patch('h3_toolkit.hbase.HBaseClient._send_data_main', new_callable=AsyncMock)
+    @patch("asyncio.run")
+    @patch("h3_toolkit.hbase.HBaseClient._send_data_main", new_callable=AsyncMock)
     def test_send_data_uses_asyncio_run_when_no_loop(self, mock_send, mock_run, hbase_client):
         """
         Test that send_data uses asyncio.run() when there's no running loop.
@@ -115,10 +115,12 @@ class TestSendDataAsyncioHandling:
         mock_run.return_value = None  # send_data doesn't return anything
 
         # Create test data
-        data = pl.DataFrame({
-            "hex_id": ["row1", "row2"],
-            "col1": [1, 2],
-        })
+        data = pl.DataFrame(
+            {
+                "hex_id": ["row1", "row2"],
+                "col1": [1, 2],
+            }
+        )
 
         # Execute
         hbase_client.send_data(
@@ -127,7 +129,7 @@ class TestSendDataAsyncioHandling:
             column_family="cf",
             column_qualifier=["col1"],
             rowkey_col="hex_id",
-            timestamp=None
+            timestamp=None,
         )
 
         # Assert: asyncio.run was called
@@ -139,8 +141,8 @@ class TestSendDataAsyncioHandling:
         """
         import polars as pl
 
-        with patch('h3_toolkit.hbase.concurrent.futures.ThreadPoolExecutor') as mock_executor_class:
-            with patch.object(hbase_client, '_send_data_main', new_callable=AsyncMock):
+        with patch("h3_toolkit.hbase.concurrent.futures.ThreadPoolExecutor") as mock_executor_class:
+            with patch.object(hbase_client, "_send_data_main", new_callable=AsyncMock):
                 # Setup mock executor
                 mock_executor = AsyncMock()
                 mock_executor.__enter__ = AsyncMock(return_value=mock_executor)
@@ -153,10 +155,12 @@ class TestSendDataAsyncioHandling:
                 mock_executor_class.return_value = mock_executor
 
                 # Create test data
-                data = pl.DataFrame({
-                    "hex_id": ["row1"],
-                    "col1": [1],
-                })
+                data = pl.DataFrame(
+                    {
+                        "hex_id": ["row1"],
+                        "col1": [1],
+                    }
+                )
 
                 # Run within event loop
                 async def run_send_in_loop():
@@ -166,7 +170,7 @@ class TestSendDataAsyncioHandling:
                         column_family="cf",
                         column_qualifier=["col1"],
                         rowkey_col="hex_id",
-                        timestamp=None
+                        timestamp=None,
                     )
 
                 loop = asyncio.new_event_loop()

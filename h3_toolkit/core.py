@@ -21,19 +21,16 @@ from .utils import cell_to_geom, geom_to_wkb, setup_default_logger, wkb_to_cells
 
 class H3Toolkit:
     def __init__(self):
-        self.client:HBaseClient = None
+        self.client: HBaseClient = None
         self.aggregation_strategies = {}
-        self.source_resolution:int = None
-        self.target_resolution:int = None
+        self.source_resolution: int = None
+        self.target_resolution: int = None
         self.raw_data = None
-        self.result:pl.DataFrame = pl.DataFrame()
+        self.result: pl.DataFrame = pl.DataFrame()
 
         self.logger = setup_default_logger(__name__, level=logging.WARNING)
 
-    def set_aggregation_strategy(
-        self,
-        strategies:dict[str | tuple[str], AggregationStrategy]
-    ) -> H3Toolkit:
+    def set_aggregation_strategy(self, strategies: dict[str | tuple[str], AggregationStrategy]) -> H3Toolkit:
         """
         Set the aggregation strategies for the designated columns(properties) in the input data. \
 
@@ -50,7 +47,7 @@ class H3Toolkit:
         self.aggregation_strategies = strategies
         return self
 
-    def _apply_strategy(self, df:pl.DataFrame)->pl.DataFrame:
+    def _apply_strategy(self, df: pl.DataFrame) -> pl.DataFrame:
         """
 
         Args:
@@ -60,22 +57,22 @@ class H3Toolkit:
             pl.DataFrame: _description_
         """
 
-        return_df = df.select(pl.col('cell'))
+        return_df = df.select(pl.col("cell"))
         # it's possible that the aggregation_strategies is empty
         if self.aggregation_strategies:
             for col, strategy in self.aggregation_strategies.items():
                 cols = [col] if isinstance(col, str) else col
                 # let eveny df is a raw df as the input
                 applied_df = strategy.apply(df, target_cols=cols)
-                return_df = return_df.join(applied_df, on='cell', how='left')
+                return_df = return_df.join(applied_df, on="cell", how="left")
 
         return return_df
 
     def process_from_vector(
         self,
         data: pl.DataFrame | gpd.GeoDataFrame,
-        resolution:int = 12,
-        geometry_col:str = 'geometry'
+        resolution: int = 12,
+        geometry_col: str = "geometry",
     ) -> H3Toolkit:
         """
         Process the input data with geo-spatial information and output the data with H3 cells in the specific resolution.
@@ -123,19 +120,20 @@ class H3Toolkit:
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Start converting data to h3 cells in resolution {self.source_resolution}"
+        )  # noqa: E501
 
         self.result = (
-            self.raw_data
-            .lazy()
+            self.raw_data.lazy()
             .pipe(wkb_to_cells, self.source_resolution, geometry_col)
-            .pipe(self._apply_strategy) # apply the aggregation strategy
+            .pipe(self._apply_strategy)  # apply the aggregation strategy
             .select(
                 # Convert the cell(unit64) to string
-                pl.col('cell').h3.cells_to_string().alias('hex_id'),
+                pl.col("cell").h3.cells_to_string().alias("hex_id"),
                 # only select the columns set in the aggregation strategies
                 # pl.col(selected_cols)
-                pl.all().exclude(['cell', geometry_col])
+                pl.all().exclude(["cell", geometry_col]),
             )
             .collect(streaming=True)
         )
@@ -143,9 +141,11 @@ class H3Toolkit:
         # Potential hex_id loss: check if there is any null value in the hex_id column
 
         # resolution選太大就會有null！
-        if self.result.select(pl.col('hex_id').is_null().any()).item():
-            self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`") # noqa: E501
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
+        if self.result.select(pl.col("hex_id").is_null().any()).item():
+            self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`")  # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}"
+        )  # noqa: E501
 
         return self
 
@@ -153,9 +153,9 @@ class H3Toolkit:
         self,
         data: list[list[int | float]],
         transform,
-        resolution:int = 12,
-        nodata_value:float | int | None = None,
-        return_value_name:str = 'value',
+        resolution: int = 12,
+        nodata_value: float | int | None = None,
+        return_value_name: str = "value",
     ) -> H3Toolkit:
         """
         Processes raster data and converts it into H3 indexes.
@@ -178,7 +178,7 @@ class H3Toolkit:
         Returns:
             H3Toolkit: The updated instance of the H3Toolkit with the processed data.
 
-        """ # noqa: E501
+        """  # noqa: E501
 
         # check resolution is from 0 to 15
         if resolution not in range(0, 16):
@@ -188,36 +188,38 @@ class H3Toolkit:
         else:
             self.source_resolution = resolution
 
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Start converting data to h3 cells in resolution {self.source_resolution}") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Start converting data to h3 cells in resolution {self.source_resolution}"
+        )  # noqa: E501
         self.raw_data = raster_to_dataframe(
-            in_raster = data,
-            transform = transform,
-            h3_resolution = resolution,
-            nodata_value = nodata_value,
-            compact = False,
+            in_raster=data,
+            transform=transform,
+            h3_resolution=resolution,
+            nodata_value=nodata_value,
+            compact=False,
             # geo = False,
         )
 
         self.result = (
-            self.raw_data
-            .lazy()
+            self.raw_data.lazy()
             .select(
-                pl.col('cell')
-                .h3.cells_to_string().alias('hex_id'),
-                pl.col('value').alias(return_value_name)
+                pl.col("cell").h3.cells_to_string().alias("hex_id"),
+                pl.col("value").alias(return_value_name),
             )
             .collect(streaming=True)
         )
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}"
+        )  # noqa: E501
 
         return self
 
     def process_from_h3(
         self,
-        data:pl.DataFrame | None = None,
-        target_resolution:int = 7,
-        source_resolution:int = None,
-        h3_col:str = 'hex_id'
+        data: pl.DataFrame | None = None,
+        target_resolution: int = 7,
+        source_resolution: int = None,
+        h3_col: str = "hex_id",
     ) -> H3Toolkit:
         """
         Processes the input H3 indexed data by converting the resolution of H3 cells and
@@ -265,7 +267,7 @@ class H3Toolkit:
             - The aggregation strategies are applied to the transformed H3 data.
             - The function ensures no duplicate H3 cells exist in the final result.
 
-        """ # noqa: E501
+        """  # noqa: E501
 
         # if data_with_h3 is provided, use the data_with_h3
         if data is not None:
@@ -276,8 +278,7 @@ class H3Toolkit:
             source_resolution = self.source_resolution
 
         # check resolution is from 0 to 15
-        if source_resolution  not in range(0, 16) or \
-            target_resolution not in range(0, 16):
+        if source_resolution not in range(0, 16) or target_resolution not in range(0, 16):
             raise ResolutionRangeError("""
                 The resolution must be an integer from 0 to 15, please refer to the H3 documentation
             """)
@@ -305,38 +306,30 @@ class H3Toolkit:
                         The column '{', '.join(missing_cols)}' not found in the input data,
                         please use `set_aggregation_strategy()` to reset the valid col name.
                     """)
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Start converting data to h3 cells in resolution {self.target_resolution}") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Start converting data to h3 cells in resolution {self.target_resolution}"
+        )  # noqa: E501
         self.result = (
-            self.result
-            .lazy()
-            .drop_nulls(subset=[h3_col])# 沒有h3 index的row就直接刪掉
+            self.result.lazy()
+            .drop_nulls(subset=[h3_col])  # 沒有h3 index的row就直接刪掉
             .with_columns(
                 # 根據h3_col做resolution的轉換
-                pl.col(h3_col)
-                .h3.cells_parse()
-                .h3.change_resolution(self.target_resolution)
-                .alias('cell')
+                pl.col(h3_col).h3.cells_parse().h3.change_resolution(self.target_resolution).alias("cell")
             )
             .pipe(self._apply_strategy)
-            .select(
-                pl.all().exclude(h3_col)
-            )
-            .select(
-                pl.col('cell')
-                    .h3.cells_to_string()
-                    .alias(h3_col),
-                pl.exclude('cell')
-                )
-
+            .select(pl.all().exclude(h3_col))
+            .select(pl.col("cell").h3.cells_to_string().alias(h3_col), pl.exclude("cell"))
             # can't have duplicate hex_id in the result
             .unique(subset=[h3_col])
             .collect(streaming=True)
         )
-        self.logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Finish converting data to h3 cells in resolution {self.target_resolution} with shape {self.result.shape}") # noqa: E501
+        self.logger.info(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Finish converting data to h3 cells in resolution {self.target_resolution} with shape {self.result.shape}"
+        )  # noqa: E501
 
         return self
 
-    def set_hbase_client(self, client:HBaseClient) -> H3Toolkit:
+    def set_hbase_client(self, client: HBaseClient) -> H3Toolkit:
         """
         Sets the HBase client for interacting with HBase.
 
@@ -373,16 +366,15 @@ class H3Toolkit:
         if self.client:
             return self.client
         else:
-            return self.logger.warning(
-                "No HBase client set. Please use `set_hbase_client()` to set the HBase client.")
+            return self.logger.warning("No HBase client set. Please use `set_hbase_client()` to set the HBase client.")
 
     def fetch_from_hbase(
         self,
-        table_name:str,
-        column_family:str,
+        table_name: str,
+        column_family: str,
         column_qualifier: list[str],
-        rowkeys:list[str] = None,
-        timerange: tuple[str, str] = None
+        rowkeys: list[str] = None,
+        timerange: tuple[str, str] = None,
     ) -> H3Toolkit:
         """
         Fetches data from an HBase table based on H3 index row keys.
@@ -437,27 +429,31 @@ class H3Toolkit:
             >>> hex_ids = ['8c4ba1d2914b9ff', '8c4ba1d2914b8ff', '8c4ba1d2914b7ff']
             >>> toolkit.set_hbase_client(hbase_client)
             >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids, timerange=('2011-06-01', '2011-06-30'))
-        """ # noqa: E501
+        """  # noqa: E501
 
         if self.result.is_empty():
             if rowkeys:
-                self.result = pl.DataFrame({'hex_id': rowkeys})
+                self.result = pl.DataFrame({"hex_id": rowkeys})
             else:
-                raise ValueError("Please provide the h3 index first \
-                                before fetching data from HBase.")
+                raise ValueError(
+                    "Please provide the h3 index first \
+                                before fetching data from HBase."
+                )
 
         if self.client:
             fetched = self.client.fetch_data(
                 table_name=table_name,
                 column_family=column_family,
                 column_qualifier=column_qualifier,
-                rowkeys=self.result['hex_id'].to_list(),
-                timerange=timerange
+                rowkeys=self.result["hex_id"].to_list(),
+                timerange=timerange,
             )
-            self.result = self.result.join(fetched, on='hex_id', how='left')
+            self.result = self.result.join(fetched, on="hex_id", how="left")
         else:
-            raise HBaseConnectionError("The HBase client didn't set, use `set_hbase_client()` \
-                                        to set the HBase client before fetching data from hbase.")
+            raise HBaseConnectionError(
+                "The HBase client didn't set, use `set_hbase_client()` \
+                                        to set the HBase client before fetching data from hbase."
+            )
 
         return self
 
@@ -491,10 +487,10 @@ class H3Toolkit:
 
     def send_to_hbase(
         self,
-        table_name:str,
-        column_family:str,
+        table_name: str,
+        column_family: str,
         column_qualifier: list[str],
-        h3_col:str = 'hex_id',
+        h3_col: str = "hex_id",
         timestamp=None,
     ) -> H3Toolkit:
         """
@@ -543,21 +539,25 @@ class H3Toolkit:
         """
 
         if self.result.is_empty():
-            raise ValueError("Please process the data first \
-                             before sending data to HBase.")
+            raise ValueError(
+                "Please process the data first \
+                             before sending data to HBase."
+            )
 
         if self.client:
             self.client.send_data(
-                data = self.result,
-                table_name = table_name,
-                column_family = column_family,
-                column_qualifier = column_qualifier,
-                rowkey_col = h3_col,
-                timestamp = timestamp
+                data=self.result,
+                table_name=table_name,
+                column_family=column_family,
+                column_qualifier=column_qualifier,
+                rowkey_col=h3_col,
+                timestamp=timestamp,
             )
         else:
-            raise HBaseConnectionError("The HBase client didn't set, use `set_hbase_client()` \
-                                        to set the HBase client before sending data to hbase.")
+            raise HBaseConnectionError(
+                "The HBase client didn't set, use `set_hbase_client()` \
+                                        to set the HBase client before sending data to hbase."
+            )
 
         return self
 
@@ -571,8 +571,9 @@ class H3Toolkit:
 
         return self
 
-
-    def get_result(self, return_geometry:bool=False, fill_null_value:int|float=0) -> pl.DataFrame | gpd.GeoDataFrame:
+    def get_result(
+        self, return_geometry: bool = False, fill_null_value: int | float = 0
+    ) -> pl.DataFrame | gpd.GeoDataFrame:
         """Retrieves the result of the data processing, optionally converting H3 cells back to geometries.
 
         This method returns the processed data, which can either remain in H3 cell format or be converted
@@ -612,36 +613,31 @@ class H3Toolkit:
             - If `return_geometry` is True, the method will convert H3 cells into geometries using the `cell_to_geom` method and return a GeoDataFrame.
             - Only numeric columns (int64, float64) are affected by null filling. Other data types are left untouched.
             - Future versions might include functionality to merge identical rows and process geometries more efficiently.
-        """ #noqa: E501
+        """  # noqa: E501
         if self.result.is_empty():
             raise ValueError("Please process the data first before getting the result.")
 
         result = self.result
         if fill_null_value is not None:
             # Only fill null values in numeric columns to avoid data corruption in non-numeric columns
-            result = result.with_columns(
-                pl.col(pl.Float64, pl.Int64).fill_null(fill_null_value)
-            )
+            result = result.with_columns(pl.col(pl.Float64, pl.Int64).fill_null(fill_null_value))
 
         # TODO: 將完全相同的row merge在一起, 配合cells_to_wkb_polygons
         if return_geometry:
-            return (
-                result
-                .pipe(cell_to_geom)
-            )
+            return result.pipe(cell_to_geom)
         else:
             return result
 
     def show(
         self,
         target_col: str,
-        h3_col: str = 'hex_id',
-        classifier: str = 'NaturalBreaks',
+        h3_col: str = "hex_id",
+        classifier: str = "NaturalBreaks",
         k: int = 5,
-        cmap: str = 'Oranges',
+        cmap: str = "Oranges",
         save_to: str | None = None,
-        **pydeck_kwargs
-    ) -> 'H3Toolkit':
+        **pydeck_kwargs,
+    ) -> H3Toolkit:
         """
         Visualize H3 hexagon data layer.
 
@@ -702,7 +698,7 @@ class H3Toolkit:
             k=k,
             cmap=cmap,
             save_to=save_to,
-            **pydeck_kwargs
+            **pydeck_kwargs,
         )
 
         # Return Deck object for Jupyter display, or self if saved to file

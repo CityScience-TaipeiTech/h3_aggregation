@@ -307,7 +307,7 @@ https://readthedocs.org/projects/h3-toolkit/versions/
   ↓
 Find your version (e.g., v0.3.13)
   ↓
-Click "Edit" 
+Click "Edit"
   ↓
 Check "Active"
 Check "Set as Default Version" (if you want it as "stable")
@@ -339,14 +339,14 @@ Day 1: Release v0.3.13
         ↓
   https://h3-toolkit.readthedocs.io/en/v0.3.13/  ← New version available
   https://h3-toolkit.readthedocs.io/en/latest/   ← Still points to main
-  
+
 Day 2: Merge v0.3.13 to main
   git push origin main
         ↓
   ReadTheDocs rebuilds "latest" docs
         ↓
   https://h3-toolkit.readthedocs.io/en/latest/   ← Updated with v0.3.13 content
-  
+
 Day 3: (Optional) Mark v0.3.13 as stable
   Visit ReadTheDocs admin → Set v0.3.13 as Default
         ↓
