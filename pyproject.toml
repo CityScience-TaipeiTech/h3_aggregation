@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "h3-toolkit"
-version = "0.3.15"
+version = "0.3.16"
 description = "A toolkit for aggregating and visualizing geospatial data using H3 hexagonal grids"
 license = "MIT"
 authors = ["Huang SyuanBo <godspeed88168@gmail.com>"]
