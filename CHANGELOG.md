@@ -1,17 +1,23 @@
-## [unreleased]
+## [0.3.16] - 2026-04-28
 
 ### 🚀 Features
 
 - Update ruff lint
+- Upgrade h3ronpy to 0.22 and polars to 1.40
 
 ### 📚 Documentation
 
 - Update README.md and CONTRIBUTING.md
 - Add .github/ for people to contribute
 
+### 🧪 Testing
+
+- Add process_from_raster test coverage
+
 ### ⚙️ Miscellaneous Tasks
 
 - Remove E501
+- Bump version from 0.3.15 to 0.3.16
 ## [0.3.15] - 2026-04-14
 
 ### ⚙️ Miscellaneous Tasks
