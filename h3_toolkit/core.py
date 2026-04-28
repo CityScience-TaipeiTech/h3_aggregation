@@ -86,7 +86,7 @@ class H3Toolkit:
             ResolutionRangeError: The resolution must be an integer from 0 to 15
             InputDataTypeError: The input data must be either a GeoDataFrame or a DataFrame with geo-spatial information.
             ColumnNotFoundError: The column name set in the aggregation strategies is not found in the input data
-        """  # noqa: E501
+        """
 
         # check resolution is from 0 to 15
         if resolution not in range(0, 16):
@@ -122,7 +122,7 @@ class H3Toolkit:
 
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Start converting data to h3 cells in resolution {self.source_resolution}"
-        )  # noqa: E501
+        )
 
         self.result = (
             self.raw_data.lazy()
@@ -142,10 +142,10 @@ class H3Toolkit:
 
         # resolution選太大就會有null！
         if self.result.select(pl.col("hex_id").is_null().any()).item():
-            self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`")  # noqa: E501
+            self.logger.warning("potential hex_id loss: please select the higher resolution with `process_from_h3()`")
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_vector` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}"
-        )  # noqa: E501
+        )
 
         return self
 
@@ -178,7 +178,7 @@ class H3Toolkit:
         Returns:
             H3Toolkit: The updated instance of the H3Toolkit with the processed data.
 
-        """  # noqa: E501
+        """
 
         # check resolution is from 0 to 15
         if resolution not in range(0, 16):
@@ -190,7 +190,7 @@ class H3Toolkit:
 
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Start converting data to h3 cells in resolution {self.source_resolution}"
-        )  # noqa: E501
+        )
         self.raw_data = raster_to_dataframe(
             in_raster=data,
             transform=transform,
@@ -210,7 +210,7 @@ class H3Toolkit:
         )
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_raster` - Finish converting data to h3 cells in resolution {self.source_resolution} with shape {self.result.shape}"
-        )  # noqa: E501
+        )
 
         return self
 
@@ -267,7 +267,7 @@ class H3Toolkit:
             - The aggregation strategies are applied to the transformed H3 data.
             - The function ensures no duplicate H3 cells exist in the final result.
 
-        """  # noqa: E501
+        """
 
         # if data_with_h3 is provided, use the data_with_h3
         if data is not None:
@@ -308,7 +308,7 @@ class H3Toolkit:
                     """)
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Start converting data to h3 cells in resolution {self.target_resolution}"
-        )  # noqa: E501
+        )
         self.result = (
             self.result.lazy()
             .drop_nulls(subset=[h3_col])  # 沒有h3 index的row就直接刪掉
@@ -325,7 +325,7 @@ class H3Toolkit:
         )
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `process_from_h3` - Finish converting data to h3 cells in resolution {self.target_resolution} with shape {self.result.shape}"
-        )  # noqa: E501
+        )
 
         return self
 
@@ -429,7 +429,7 @@ class H3Toolkit:
             >>> hex_ids = ['8c4ba1d2914b9ff', '8c4ba1d2914b8ff', '8c4ba1d2914b7ff']
             >>> toolkit.set_hbase_client(hbase_client)
             >>> toolkit.fetch_from_hbase('res12_pre_data', 'demographic', ['p_cnt', 'h_cnt'], rowkeys=hex_ids, timerange=('2011-06-01', '2011-06-30'))
-        """  # noqa: E501
+        """
 
         if self.result.is_empty():
             if rowkeys:
@@ -613,7 +613,7 @@ class H3Toolkit:
             - If `return_geometry` is True, the method will convert H3 cells into geometries using the `cell_to_geom` method and return a GeoDataFrame.
             - Only numeric columns (int64, float64) are affected by null filling. Other data types are left untouched.
             - Future versions might include functionality to merge identical rows and process geometries more efficiently.
-        """  # noqa: E501
+        """
         if self.result.is_empty():
             raise ValueError("Please process the data first before getting the result.")
 

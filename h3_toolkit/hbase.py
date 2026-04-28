@@ -319,7 +319,7 @@ class HBaseClient:
 
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Start fetching data from HBase"
-        )  # noqa: E501
+        )
 
         coro = self._fetch_data_main(table_name, column_family, column_qualifier, rowkeys, timerange)
         try:
@@ -341,7 +341,7 @@ class HBaseClient:
         )
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `fetch_from_hbase` - Finish fetching data from HBase"
-        )  # noqa: E501
+        )
 
         return result
 
@@ -366,9 +366,9 @@ class HBaseClient:
 
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Start sending data from HBase"
-        )  # noqa: E501
+        )
 
-        coro = self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp)  # noqa: E501
+        coro = self._send_data_main(data, table_name, column_family, column_qualifier, rowkey_col, timestamp)
         try:
             asyncio.get_running_loop()
             # A running event loop exists (e.g., Jupyter Notebook).
@@ -379,7 +379,7 @@ class HBaseClient:
 
         self.logger.info(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - `send_to_hbase` - Finish sending data from HBase"
-        )  # noqa: E501
+        )
         del data
         gc.collect()
 
